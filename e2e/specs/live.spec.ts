@@ -19,14 +19,10 @@ test.describe('generation flow (mocked model)', () => {
     await page.locator('textarea[placeholder="必填"]').fill('端到端测试（mock 模型）：开源大模型的数字主权影响')
     await page.getByText('生成 MAS', { exact: true }).first().click()
 
-    // live generating status (not a static spinner)
+    // live generating status (not a static spinner); the full session
+    // transcript is opened from the DSH sidebar (对话 / 轨迹), not rendered here
     await expect(page.getByText('生成中', { exact: true }).first()).toBeVisible({ timeout: 15000 })
     await expect(page.locator('.ps-caption', { hasText: 'generation.status = generating' })).toBeVisible({ timeout: 10000 })
-
-    // generation transcript streams in the collapsible log panel
-    await page.getByText('生成会话（消息 / 工具调用 / 思考过程）', { exact: false }).click()
-    await expect(page.locator('.ps-log-body')).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText(/开始生成 MAS/, { exact: false })).toBeVisible({ timeout: 10000 })
 
     // mock generation finishes -> detail with stage strip appears
     await expect(page.getByText('Overview', { exact: true }).first()).toBeVisible({ timeout: 60_000 })
