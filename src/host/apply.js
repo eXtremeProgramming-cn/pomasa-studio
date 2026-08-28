@@ -99,6 +99,21 @@ export function apply(ctx, config = {}) {
     return fs.existsSync(masDir(home(), masId))
   }
 
+  // Generation is only "complete" once pomasa.json exists AND every stage's
+  // agent blueprint it references actually exists on disk. pomasa.json may be
+  // written early (the generator can emit descriptor + references first), so
+  // treating its mere presence as completion flips the UI to the detail view
+  // while agents/ is still empty.
+  function isGenerationComplete(masId) {
+    const root = masDir(home(), masId)
+    if (!fs.existsSync(path.join(root, 'pomasa.json'))) return false
+    const descriptor = loadDescriptor(root)
+    if (!descriptor || !Array.isArray(descriptor.stages)) return false
+    const referenced = descriptor.stages.map((s) => s.agent).filter(Boolean)
+    if (referenced.length === 0) return false
+    return referenced.every((agent) => fs.existsSync(path.join(root, String(agent))))
+  }
+
   // Bare agentLoop.create sessions lack the model selection ({{model}} etc.) and
   // the preset setup that real sessions get. Mirror the harness's own headless
   // driver instead: resolve the agentDefaultModel selection, create the agent via
@@ -147,8 +162,8 @@ export function apply(ctx, config = {}) {
     return {
       gen: gensSession,
       run: runSession,
-      // generation is complete once pomasa.json appears
-      generated: hasMas(masId) && fs.existsSync(path.join(masDir(home(), masId), 'pomasa.json')),
+      // generation is complete once the descriptor and every referenced agent exist
+      generated: hasMas(masId) && isGenerationComplete(masId),
     }
   }
 
@@ -164,7 +179,7 @@ export function apply(ctx, config = {}) {
       if (owner.kind === 'gen') {
         const masId = owner.masId
         if (!genSessions.has(masId)) return
-        const generated = fs.existsSync(path.join(masDir(home(), masId), 'pomasa.json'))
+        const generated = isGenerationComplete(masId)
         genSessions.delete(masId)
         if (!generated) upsertMas(config, { id: masId, status: 'failed' })
       } else if (owner.runKey) {
@@ -330,14 +345,14 @@ export function apply(ctx, config = {}) {
         const masId = q.masId
         if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
         const descriptor = loadDescriptor(masDir(home(), masId))
-        return jsonResponse(res, 200, { ok: true, descriptor, generated: !!descriptor })
+        return jsonResponse(res, 200, { ok: true, descriptor, generated: isGenerationComplete(masId) })
       }
 
       if (sub === '/generation.status' && req.method === 'GET') {
         const masId = q.masId
         if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
         const live = dispatch(masId)
-        const done = fs.existsSync(path.join(masDir(home(), masId), 'pomasa.json'))
+        const done = isGenerationComplete(masId)
         let status
         if (done) {
           upsertMas(config, { id: masId, status: 'idle' })

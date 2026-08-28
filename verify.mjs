@@ -322,6 +322,10 @@ test('L2 lifecycle: create -> generating -> completed', async () => {
 
   // simulate generation finishing: pomasa.json appears
   fs.writeFileSync(path.join(home, 'demo2', 'pomasa.json'), JSON.stringify(SINGLE_DESCRIPTOR))
+  // completion also requires the referenced agent blueprints to exist
+  fs.mkdirSync(path.join(home, 'demo2', 'agents'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'demo2', 'agents', '01.overview.md'), '# o')
+  fs.writeFileSync(path.join(home, 'demo2', 'agents', '02.research.md'), '# r')
   st = await call(routes, '/pomasa/generation.status?masId=demo2')
   assert.equal(st.json.status, 'completed')
 
