@@ -1,5 +1,7 @@
 // Client entry — bundled to lib/client.js by scripts/bundle-client.mjs.
-// Slot: conversation.view (a session tab beside Chat / Trajectory).
+// Entries: conversation.view (a session tab beside Chat / Trajectory) plus a
+// sidebar.footer.action that opens the Studio as a full-screen overlay, so the
+// workbench is reachable without opening a session.
 export const inject = ['slots']
 
 export function apply(ctx) {
@@ -50,6 +52,30 @@ export function apply(ctx) {
     }
   }
 
+  function PomasaFooterAction() {
+    const [open, setOpen] = React.useState(false)
+    return h('div', null,
+      h('div', { className: 'ps-footer-action', onClick: () => setOpen(!open) }, 'POMASA'),
+      open ? h('div', { className: 'ps-app-overlay' },
+        h('div', { className: 'ps-app-overlay-close' },
+          h(psBtn, { onClick: () => setOpen(false) }, '关闭'),
+        ),
+        h(StudioRoot, { sessionId: 'global', key: 'global' }),
+      ) : null,
+    )
+  }
+
+  function applySlots(slots, h2) {
+    slots.inject('conversation.view', () => slots.register(
+    { name: 'conversation.view', id: 'pomasa-studio', order: 30, label: 'POMASA' },
+    (props) => h2(StudioRoot, { sessionId: props.sessionId, key: props.sessionId }),
+  ))
+    slots.inject('sidebar.footer.action', () => slots.register(
+      { name: 'sidebar.footer.action', id: 'pomasa-studio', order: 20, label: 'POMASA' },
+      () => h2(PomasaFooterAction, null),
+    ))
+  }
+
   function StudioRoot(props) {
     const [route, setRoute] = React.useState('list')
     const [masId, setMasId] = React.useState(null)
@@ -76,8 +102,5 @@ export function apply(ctx) {
     return h(PsBoundary, null, page)
   }
 
-  slots.inject('conversation.view', () => slots.register(
-    { name: 'conversation.view', id: 'pomasa-studio', order: 30, label: 'POMASA' },
-    (props) => h(StudioRoot, { sessionId: props.sessionId, key: props.sessionId }),
-  ))
+  applySlots(slots, h)
 }

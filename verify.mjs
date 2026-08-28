@@ -415,7 +415,7 @@ test('L2 safety: generate requires topic, rejects dup ids', async () => {
   assert.match(dup.json.error, /exists/)
 })
 
-test('L2 client bundle: loads and registers conversation.view', () => {
+test('L2 client bundle: loads and registers conversation.view + sidebar entry', () => {
   const bundlePath = path.join(ROOT, 'lib/client.js')
   assert.ok(fs.existsSync(bundlePath), 'lib/client.js missing — run npm run build:client first')
   const src = fs.readFileSync(bundlePath, 'utf8')
@@ -431,9 +431,10 @@ test('L2 client bundle: loads and registers conversation.view', () => {
             if (name === 'react') return React
             throw new Error('unexpected require: ' + name)
           })
+          const expectedSlots = ['conversation.view', 'sidebar.footer.action']
           const vc = {
             inject(slotName, factory) {
-              assert.equal(slotName, 'conversation.view')
+              assert.equal(slotName, expectedSlots.shift())
               assert.equal(typeof factory(), 'function', 'inject factory must return a dispose fn')
             },
             register(def, render) {
@@ -450,9 +451,10 @@ test('L2 client bundle: loads and registers conversation.view', () => {
   vm.createContext(sandbox)
   vm.runInContext(src, sandbox)
   assert.deepEqual(loaded, ['pomasa-studio'])
-  assert.equal(registrations.length, 1)
+  assert.equal(registrations.length, 2)
   assert.equal(registrations[0].id, 'pomasa-studio')
   assert.equal(registrations[0].name, 'conversation.view')
+  assert.ok(registrations.some((r) => r.name === 'sidebar.footer.action'))
 })
 
 async function findPnpmReact() {
