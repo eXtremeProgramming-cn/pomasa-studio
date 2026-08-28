@@ -1,0 +1,39 @@
+{
+  "name": "pomasa-studio",
+  "version": "0.1.0",
+  "description": "POMASA Studio: manage all POMASA MASes (list, create via generator, run, inspect artifacts). DSH web-profile plugin.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "src/",
+    "skill/",
+    "scripts/bundle-client.mjs",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "build:client": "node scripts/bundle-client.mjs",
+    "verify": "node verify.mjs",
+    "test:transport": "bash scripts/transport-smoke.sh"
+  }
+}

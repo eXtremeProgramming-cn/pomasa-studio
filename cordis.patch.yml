@@ -1,0 +1,5 @@
+# POMASA Studio bundle layer for the DSH web profile.
+# Inserted when a profile lists this package in dsh.profile.bundles.
+- insert:
+    - id: pomasa-studio
+      name: pomasa-studio
