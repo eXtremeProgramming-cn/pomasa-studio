@@ -1,0 +1,2 @@
+[ { "id": "r1", "title": "Finding Alpha", "summary": "第一个发现", "file": "alpha.md", "producer": "research" },
+  { "id": "r2", "title": "Finding Beta", "summary": "第二个发现", "file": "beta.md", "producer": "research" } ]

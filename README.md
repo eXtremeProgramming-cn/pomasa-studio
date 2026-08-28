@@ -2,19 +2,40 @@
 
 POMASA 的 DSH 插件，远期包成"研究工作台"。管理 `~/.pomasa` 下所有 POMASA MAS：列表、新建（user_input 到生成器）、运行状态、阶段产物展示。
 
-## 状态
+## 当前状态（2026-08-28）
 
-设计阶段。数据流设计见 [DESIGN.md](./DESIGN.md)，按"界面行为到数据接口到元数据规定到模式"的链条推导。
+- host 侧完成：`~/.pomasa` 数据层（描述符/单元/运行状态/防穿越）+ `/pomasa` HTTP API + 生成/运行会话编排（agentLoop）
+- client 侧完成：conversation.view tab，三页面（MAS 列表 / 新建表单 / MAS 详情：阶段条、产物卡、md 查看器、日志面板、干预输入、单元选择）
+- 数据契约由 [OBV-01/02/03](./01.tools/pomasa/skills/pomasa/pattern-catalog/) 定义（已在 pomasa 仓库定稿并推送）
+- 设计文档 [DESIGN.md](./DESIGN.md)、测试方案 [TESTING.md](./TESTING.md)、UI 选型 [UI.md](./UI.md)
+
+## 验证
+
+```bash
+npm run build:client # 重新生成 lib/client.js（已提交）
+npm run verify       # L1 单元 + L2 host 集成 + client bundle 冒烟（无 DSH）
+npm run test:transport   # L3：封闭起的真实 dsh web + curl（不碰真实 profile）
+npm run test:e2e:install # 一次性装 @playwright/test + chromium
+npm run test:e2e         # L4a：Playwright 浏览器 E2E（fixture 数据）
+```
+
+## 安装进 web profile（本地开发）
+
+```bash
+dsh plugin --profile web add /Users/gigix/Projects/01.tools/pomasa-studio
+dsh web
+```
+
+## 结构
+
+```
+src/host/         host 半：apply.js（API）+ core/（数据层）
+src/client/       浏览器半：三页面 + 组件 + 迷你 md 渲染器
+skill/            POMASA skill 快照（钉版本，生成可复现）
+e2e/              L4 浏览器测试：fixture-mas + servers.mjs + specs
+scripts/          bundle-client.mjs、transport-smoke.sh
+```
 
 ## 与前身的关系
 
-`01.tools/POMASA_Observatory`（npm 名 dsh-pomasa）是概念验证实验，废弃，不作为参考。本仓库为正式版。
-
-## 技术概要
-
-- DSH 插件：`conversation.view` 槽位加 tab；host 半读 `~/.pomasa`，用 DSH 智能运行时会话执行生成与运行，不写编排胶水代码。
-- 数据契约（全部为普通文件，运行时无关）：
-  - `pomasa.json`：MAS 静态描述符（stages 与产物契约）
-  - `workspace/<run-id>/run.json`：运行状态机
-  - `workspace/<run-id>/NN.<stage>/index.json`：阶段产物实例枚举
-- OBV 模式（可观测性）将进入 `01.tools/pomasa` 目录，本仓库作为其第一个消费者。
+`01.tools/POMASA_Observatory` 是概念验证实验，废弃。本仓库为正式版。

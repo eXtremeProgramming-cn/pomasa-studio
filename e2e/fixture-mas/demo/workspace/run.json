@@ -1,0 +1,14 @@
+{
+  "schema_version": "obv-1",
+  "mas_id": "demo",
+  "unit": null,
+  "created_at": 1758010000000,
+  "status": "completed",
+  "trigger": "fixture",
+  "runtime": "dsh",
+  "stages": [
+    { "index": 1, "id": "overview", "status": "completed", "started_at": 1758010001000, "finished_at": 1758010100000 },
+    { "index": 2, "id": "research", "status": "completed", "started_at": 1758010100000, "finished_at": 1758010300000 },
+    { "index": 3, "id": "report", "status": "completed", "started_at": 1758010300000, "finished_at": 1758010500000 }
+  ]
+}

@@ -1,0 +1,1 @@
+{ "version": 1, "mas": [ { "id": "demo", "name": "Demo MAS", "description": "E2E fixture mas with a completed run", "status": "idle", "createdAt": 1758000000000, "lastRunAt": 1758010000000 } ] }
