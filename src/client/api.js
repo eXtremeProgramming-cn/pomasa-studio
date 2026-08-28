@@ -25,5 +25,6 @@ function createApi() {
     startRun: (masId, units) => request('/pomasa/run.start', { method: 'POST', body: JSON.stringify({ masId, units }) }),
     intervene: (masId, unit, message) => request('/pomasa/run.intervene', { method: 'POST', body: JSON.stringify({ masId, unit: unit || null, message }) }),
     cancelRun: (masId, unit) => request('/pomasa/run.cancel', { method: 'POST', body: JSON.stringify({ masId, unit: unit || null }) }),
+    deleteMas: (masId) => request('/pomasa/mas.delete', { method: 'POST', body: JSON.stringify({ masId }) }),
   }
 }

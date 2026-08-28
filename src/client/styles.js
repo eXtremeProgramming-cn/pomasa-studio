@@ -45,6 +45,8 @@ export const CSS = `
 .ps-btn.primary:hover { filter: brightness(1.1); }
 .ps-btn.ghost { background: transparent; border-color: transparent; color: var(--dsw-alias-label-dimmed); }
 .ps-btn.ghost:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); filter: none; }
+.ps-btn-danger { color: var(--dsw-alias-state-error-primary) !important; }
+.ps-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger) !important; filter: none !important; }
 .ps-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .ps-badge {

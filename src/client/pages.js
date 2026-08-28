@@ -48,6 +48,19 @@ function MasList(props) {
               h(psBadge, { status: MAS_STATUS_BADGE[m.status] || 'idle' }, MAS_STATUS_TEXT[m.status] || m.status),
               h('span', { className: 'ps-muted' }, 'ID: ' + str(m.id)),
               h('span', { className: 'spacer', style: { flex: 1 } }),
+              h(psBtn, {
+                ghost: true,
+                className: 'ps-btn-danger',
+                style: { padding: '3px 10px', fontSize: 13 },
+                title: '删除此 MAS',
+                onClick: (e) => {
+                  e.stopPropagation()
+                  const name = str(m.name || m.id)
+                  if (window.confirm(`确定删除 MAS「${name}」吗？\n这会删除 ${str(m.id)} 的全部运行产物与注册，不可恢复。`)) {
+                    api.deleteMas(m.id).then((r) => { if (r && r.ok) refresh(); else setError((r && r.error) || '删除失败') })
+                  }
+                },
+              }, '删除'),
               h('span', { className: 'ps-caption' }, m.lastRunAt ? '上次运行 ' + fmtTime(m.lastRunAt) : '未运行'),
             ),
           ),

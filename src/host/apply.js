@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pomasaHome, masDir } from './core/paths.js'
 import { loadDescriptor } from './core/descriptor.js'
-import { loadRegistry, upsertMas } from './core/registry.js'
+import { loadRegistry, saveRegistry, upsertMas } from './core/registry.js'
 import { unitListing, unitState, readArtifact } from './core/state.js'
 import { writeUserInput } from './core/prompt.js'
 import { ensureSkill, generationPrompt, runPrompt } from './core/skill.js'
@@ -24,6 +24,7 @@ const ROUTES = [
   'run.cancel',
   'run.log',
   'generation.log',
+  'mas.delete',
 ]
 const GEN_PREFIX = 'pomasa-gen-'
 
@@ -405,6 +406,29 @@ export function apply(ctx, config = {}) {
           s.agent.cancel('user')
           runSessions.delete(`${body.masId}|${body.unit || ''}`)
         }
+        return jsonResponse(res, 200, { ok: true })
+      }
+
+      if (sub === '/mas.delete' && req.method === 'POST') {
+        const body = await readBody(req)
+        const masId = String(body.masId || '')
+        if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
+        // stop and drop active sessions, then remove the MAS home + registry row
+        const gen = genSessions.get(masId)
+        if (gen && gen.agent && typeof gen.agent.cancel === 'function') {
+          try { gen.agent.cancel('user') } catch { /* already gone */ }
+        }
+        genSessions.delete(masId)
+        for (const [key, s] of runSessions) {
+          if (key.startsWith(`${masId}|`)) {
+            try { if (s.agent && typeof s.agent.cancel === 'function') s.agent.cancel('user') } catch { /* already gone */ }
+            runSessions.delete(key)
+          }
+        }
+        fs.rmSync(masDir(home(), masId), { recursive: true, force: true })
+        const reg = loadRegistry(config)
+        reg.mas = reg.mas.filter((m) => m.id !== masId)
+        saveRegistry(config, reg)
         return jsonResponse(res, 200, { ok: true })
       }
 

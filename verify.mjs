@@ -502,4 +502,22 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(ps.psEmpty, { title: 'x', hint: 'y' })))
 })
 
+test('L2 lifecycle: mas.delete removes dir, registry, and active sessions', async () => {
+  const home = tempHome()
+  const { ctx, routes, agents } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'gone', topic: 't' })
+  assert.ok(agents.has('pomasa-gen-gone'))
+  const del = await call(routes, '/pomasa/mas.delete', 'POST', { masId: 'gone' })
+  assert.equal(del.code, 200)
+  assert.equal(del.json.ok, true)
+  assert.equal(fs.existsSync(path.join(home, 'gone')), false)
+  const gone = await call(routes, '/pomasa/generation.status?masId=gone')
+  assert.equal(gone.code, 404)
+  const list = await call(routes, '/pomasa/mas.list')
+  assert.ok(!list.json.mas.some((m) => m.id === 'gone'))
+  const ghost = await call(routes, '/pomasa/mas.delete', 'POST', { masId: 'nope' })
+  assert.equal(ghost.code, 404)
+})
+
 await main()
