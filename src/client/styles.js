@@ -110,7 +110,19 @@ export const CSS = `
 .ps-stage:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .ps-stage.on { background: var(--dsw-alias-bg-layer-2); }
 .ps-stage-on { position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; }
-.ps-stage-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-stage-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.ps-stage-name:hover { text-decoration: underline; }
+
+/* blueprint modal */
+.ps-modal-backdrop { position: fixed; inset: 0; background: var(--dsw-alias-bg-mask-2, rgba(0, 0, 0, 0.4)); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 24px; }
+.ps-modal { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: 14px; width: min(760px, 100%); max-height: 82vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25); }
+.ps-modal-head { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--dsw-alias-border-l2); }
+.ps-modal-body { padding: 20px 24px; overflow: auto; line-height: 1.7; font-size: 15px; }
+.ps-modal-body h1, .ps-modal-body h2, .ps-modal-body h3 { line-height: 1.3; margin: 1.1em 0 0.45em; }
+.ps-modal-body h1 { font-size: 23px; } .ps-modal-body h2 { font-size: 19px; } .ps-modal-body h3 { font-size: 16px; }
+.ps-modal-body p { margin: 0 0 0.85em; }
+.ps-modal-body code.ps-code { background: var(--dsw-alias-bg-layer-2); padding: 1px 6px; border-radius: 6px; font-size: 13.5px; }
+.ps-modal-body pre.ps-pre { background: var(--dsw-alias-bg-layer-2); border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; padding: 14px; overflow: auto; font-size: 13.5px; }
 .ps-stage-count { font-size: 13px; color: var(--dsw-alias-label-dimmed); }
 
 /* artifact cards */

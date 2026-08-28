@@ -175,6 +175,7 @@ function MasDetail(props) {
   const [unit, setUnit] = React.useState(null)
   const [state, setState] = React.useState(null)
   const [stageSel, setStageSel] = React.useState(0)
+  const [bp, setBp] = React.useState(null) // { title, path } for the blueprint modal
   const [artifact, setArtifact] = React.useState(null)
   const [viewer, setViewer] = React.useState(null)
   const [genStatus, setGenStatus] = React.useState(null)
@@ -324,13 +325,21 @@ function MasDetail(props) {
     ) : null,
 
     h('div', { className: 'ps-stages', style: { marginTop: 20 } },
-      stages.map((s) =>
-        h('div', { key: s.index, className: 'ps-stage' + (s.index === stageIdx ? ' on' : ''), onClick: () => { setStageSel(stages.indexOf(s)); setArtifact(null); setViewer(null) } },
+      stages.map((s) => {
+        const agentFile = descriptor ? ((descriptor.stages || []).find((x) => x.index === s.index) || {}).agent : null
+        return h('div', { key: s.index, className: 'ps-stage' + (s.index === stageIdx ? ' on' : ''), onClick: () => { setStageSel(stages.indexOf(s)); setArtifact(null); setViewer(null) } },
           h('div', { className: 'ps-stage-on', style: { background: stageColor(s.status) } }),
-          h('div', { className: 'ps-stage-name' }, str(s.title)),
+          h('div', {
+            className: 'ps-stage-name',
+            title: agentFile ? '查看蓝图 ' + str(agentFile) : undefined,
+            onClick: (e) => {
+              e.stopPropagation()
+              if (agentFile) setBp({ title: str(s.title), path: String(agentFile) })
+            },
+          }, str(s.title)),
           h('div', { className: 'ps-stage-count' }, stageCountText(s)),
-        ),
-      ),
+        )
+      }),
     ),
 
     h('div', { className: 'ps-panel' },
@@ -354,6 +363,36 @@ function MasDetail(props) {
               : h('pre', { className: 'ps-pre' }, String(viewer.content || '')),
         ),
       ) : null,
+    ),
+
+    bp ? h(BlueprintModal, { api, masId, path: bp.path, title: bp.title, onClose: () => setBp(null) }) : null,
+  )
+}
+
+function BlueprintModal(props) {
+  const [data, setData] = React.useState(null)
+  const [err, setErr] = React.useState(null)
+  React.useEffect(() => {
+    let stop = false
+    props.api.blueprintRead(props.masId, props.path)
+      .then((r) => { if (!stop) { if (r.ok) setData(r); else setErr(r.error || '读取失败') } })
+      .catch((e) => { if (!stop) setErr(String(e && e.message || e)) })
+    return () => { stop = true }
+  }, [props.masId, props.path, props.api])
+  return h('div', { className: 'ps-modal-backdrop', onClick: props.onClose },
+    h('div', { className: 'ps-modal', onClick: (e) => e.stopPropagation() },
+      h('div', { className: 'ps-modal-head' },
+        h('span', { style: { fontWeight: 600, fontSize: 15 } }, str(props.title) + ' · 蓝图'),
+        h('span', { className: 'spacer', style: { flex: 1 } }),
+        h(psBtn, { ghost: true, onClick: props.onClose }, '✕'),
+      ),
+      h('div', { className: 'ps-modal-body' },
+        err ? h('div', { className: 'ps-muted' }, err)
+          : data === null ? h('div', { className: 'ps-muted' }, '加载中…')
+          : data.format === 'markdown' ? renderMarkdown(String(data.content || ''))
+          : data.format === 'json' ? h('pre', { className: 'ps-pre' }, prettyJson(String(data.content || '')))
+          : h('pre', { className: 'ps-pre' }, String(data.content || '')),
+      ),
     ),
   )
 }

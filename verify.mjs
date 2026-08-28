@@ -553,4 +553,21 @@ test('L2 lifecycle: mas.delete removes dir, registry, and active sessions', asyn
   assert.equal(ghost.code, 404)
 })
 
+test('L2 blueprint.read: reads within MAS root, rejects escapes', async () => {
+  const home = tempHome()
+  const { ctx, routes } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'bp', topic: 't' })
+  fs.mkdirSync(path.join(home, 'bp', 'agents'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'bp', 'agents', '00.orchestrator.md'), '# Orchestrator\n\nblueprint body')
+  const ok = await call(routes, '/pomasa/blueprint.read?masId=bp&path=agents/00.orchestrator.md')
+  assert.equal(ok.code, 200)
+  assert.match(ok.json.content, /blueprint body/)
+  const esc = await call(routes, `/pomasa/blueprint.read?masId=bp&path=${encodeURIComponent('../../outside')}`)
+  assert.equal(esc.code, 400)
+  assert.match(esc.json.error, /escapes/)
+  const miss = await call(routes, '/pomasa/blueprint.read?masId=bp&path=agents/nope.md')
+  assert.equal(miss.code, 404)
+})
+
 await main()

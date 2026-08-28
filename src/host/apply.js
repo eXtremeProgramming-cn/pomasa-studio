@@ -28,6 +28,7 @@ const ROUTES = [
   'run.log',
   'generation.log',
   'mas.delete',
+  'blueprint.read',
 ]
 
 // agent.followup expects a typed dsh-session UserMessage (content blocks +
@@ -429,6 +430,30 @@ export function apply(ctx, config = {}) {
         if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
         const art = readArtifact(config, masId, q.unit || null, q.path || '')
         return jsonResponse(res, 200, { ok: true, ...art })
+      }
+
+      // MAS-home-scoped file read (blueprints, user_input, etc.). Guarded to the
+      // MAS root so it cannot escape the MAS home.
+      if (sub === '/blueprint.read' && req.method === 'GET') {
+        const masId = q.masId
+        if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
+        const base = path.resolve(masDir(home(), masId))
+        const rel = String(q.path || '')
+        const target = path.resolve(base, rel)
+        if (target !== base && !target.startsWith(base + path.sep)) {
+          return jsonResponse(res, 400, { ok: false, error: 'path escapes mas root' })
+        }
+        if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
+          return jsonResponse(res, 404, { ok: false, error: 'not found' })
+        }
+        const content = fs.readFileSync(target, 'utf8')
+        const ext = path.extname(target).toLowerCase()
+        return jsonResponse(res, 200, {
+          ok: true,
+          path: path.relative(base, target),
+          format: ext === '.md' ? 'markdown' : ext === '.json' ? 'json' : 'text',
+          content,
+        })
       }
 
       if (sub === '/run.log' && req.method === 'GET') {
