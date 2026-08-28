@@ -26,7 +26,6 @@ const ROUTES = [
   'generation.log',
   'mas.delete',
 ]
-const GEN_PREFIX = 'pomasa-gen-'
 
 // agent.followup expects a typed dsh-session UserMessage (content blocks +
 // source). A raw { role, content: string } trips the runtime-context
@@ -84,8 +83,17 @@ export function apply(ctx, config = {}) {
 
   const home = () => pomasaHome(config)
   const gens = ensureSkill(config) // materialize the pinned skill snapshot
-  const genSessions = new Map() // masId -> { agent, startedAt }
-  const runSessions = new Map() // `${masId}|${unitKey ?? ''}` -> { agent, startedAt }
+  const genSessions = new Map() // masId -> { agent, sessionId, startedAt }
+  const runSessions = new Map() // `${masId}|${unitKey ?? ''}` -> { agent, sessionId, startedAt }
+  const sessionOwner = new Map() // sessionId -> { masId, kind: 'gen' | 'run' }
+  let sessionSeq = 0
+  // DSH refuses to re-create a session whose id already has a persisted log that
+  // differs from the live one (id collision). Session ids are therefore unique
+  // per attempt instead of fixed per masId/unit.
+  function newSessionId(prefix) {
+    sessionSeq += 1
+    return `${prefix}-${sessionSeq}-${Date.now()}`
+  }
 
   function hasMas(masId) {
     return fs.existsSync(masDir(home(), masId))
@@ -141,12 +149,19 @@ export function apply(ctx, config = {}) {
   if (typeof ctx.on === 'function') {
     ctx.on('agent/disposed', (info) => {
       const sessionId = (info && (info.id ?? info.agentId ?? info.sessionId)) || ''
-      if (typeof sessionId !== 'string' || !sessionId.startsWith(GEN_PREFIX)) return
-      const masId = sessionId.slice(GEN_PREFIX.length)
-      if (!genSessions.has(masId)) return
-      const generated = fs.existsSync(path.join(masDir(home(), masId), 'pomasa.json'))
-      genSessions.delete(masId)
-      if (!generated) upsertMas(config, { id: masId, status: 'failed' })
+      if (typeof sessionId !== 'string' || !sessionId) return
+      const owner = sessionOwner.get(sessionId)
+      if (!owner) return
+      sessionOwner.delete(sessionId)
+      if (owner.kind === 'gen') {
+        const masId = owner.masId
+        if (!genSessions.has(masId)) return
+        const generated = fs.existsSync(path.join(masDir(home(), masId), 'pomasa.json'))
+        genSessions.delete(masId)
+        if (!generated) upsertMas(config, { id: masId, status: 'failed' })
+      } else if (owner.runKey) {
+        runSessions.delete(owner.runKey)
+      }
     })
   }
 
@@ -246,10 +261,12 @@ export function apply(ctx, config = {}) {
       return { ok: true, masId: id, generation: 'session' }
     }
 
-    const sessionId = `pomasa-gen-${id}`
+    const sessionId = newSessionId('pomasa-gen')
     const agent = await createAgentSession(sessionId, root, generationPrompt(gens, id, root))
     if (!agent) return { ok: true, masId: id, generation: 'external' }
     genSessions.set(id, { agent, sessionId, startedAt: Date.now() })
+    sessionOwner.set(sessionId, { masId: id, kind: 'gen' })
+    upsertMas(config, { id, lastGenSessionId: sessionId })
     return { ok: true, masId: id, generation: 'session' }
   }
 
@@ -263,15 +280,21 @@ export function apply(ctx, config = {}) {
 
     const targets = resolveRunTargets(body, descriptor)
     const launched = []
+    const runSessionIds = {}
     for (const { key, root } of targets) {
       fs.mkdirSync(root, { recursive: true })
-      const sessionId = `pomasa-run-${masId}-${key || 'single'}`
+      const sessionId = newSessionId('pomasa-run')
       const agent = await createAgentSession(sessionId, root, runPrompt(masDir(home(), masId), root, key))
       if (!agent) return { ok: false, error: 'agent 会话服务不可用（agents.create 未提供）' }
-      runSessions.set(`${masId}|${key || ''}`, { agent, sessionId, startedAt: Date.now() })
+      const runKey = `${masId}|${key || ''}`
+      runSessions.set(runKey, { agent, sessionId, startedAt: Date.now() })
+      sessionOwner.set(sessionId, { masId, kind: 'run', runKey })
+      runSessionIds[`${key || 'single'}`] = sessionId
       launched.push(key)
     }
-    upsertMas(config, { id: masId, status: 'running', lastRunAt: Date.now() })
+    const reg = loadRegistry(config)
+    const existing = (reg.mas.find((m) => m.id === masId) || {})
+    upsertMas(config, { id: masId, status: 'running', lastRunAt: Date.now(), lastRunSessionIds: { ...(existing.lastRunSessionIds || {}), ...runSessionIds } })
     return { ok: true, units: launched }
   }
 
@@ -353,9 +376,12 @@ export function apply(ctx, config = {}) {
         if (!descriptor) return jsonResponse(res, 200, { ok: true, log: null, events: [] })
         const unit = descriptor.work.mode === 'single' ? '' : (q.unit || '')
         const runKey = `${masId}|${unit}`
-        const sid = (runSessions.get(runKey) && runSessions.get(runKey).sessionId)
-          || (unit ? `pomasa-run-${masId}-${unit}` : `pomasa-run-${masId}-single`)
-        const log = await sessionLog(sid)
+        const live = runSessions.get(runKey)
+        const regGuess = loadRegistry(config).mas.find((m) => m.id === masId)
+        const sid = (live && live.sessionId)
+          || (regGuess && regGuess.lastRunSessionIds && regGuess.lastRunSessionIds[unit || 'single'])
+          || null
+        const log = sid ? await sessionLog(sid) : null
         if (log) return jsonResponse(res, 200, { ok: true, log, events: [] })
         // fallback: events.jsonl in the unit root
         const unitRoot = path.join(masDir(home(), masId), 'workspace', unit)
@@ -378,8 +404,9 @@ export function apply(ctx, config = {}) {
         if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
         const live = genSessions.get(masId)
         if (live && live.fast) return jsonResponse(res, 200, { ok: true, log: { sessionId: live.sessionId, events: live.events || [] } })
-        const sid = (live && live.sessionId) || `pomasa-gen-${masId}`
-        const log = await sessionLog(sid)
+        const regGuess = loadRegistry(config).mas.find((m) => m.id === masId)
+        const sid = (live && live.sessionId) || (regGuess && regGuess.lastGenSessionId) || null
+        const log = sid ? await sessionLog(sid) : null
         return jsonResponse(res, 200, { ok: true, log })
       }
 
@@ -433,6 +460,9 @@ export function apply(ctx, config = {}) {
           }
         }
         fs.rmSync(masDir(home(), masId), { recursive: true, force: true })
+        for (const [sid, owner] of sessionOwner) {
+          if (owner.masId === masId) sessionOwner.delete(sid)
+        }
         const reg = loadRegistry(config)
         reg.mas = reg.mas.filter((m) => m.id !== masId)
         saveRegistry(config, reg)
