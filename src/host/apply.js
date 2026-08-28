@@ -99,6 +99,9 @@ export function apply(ctx, config = {}) {
   async function createAgentSession(sessionId, cwd, promptText) {
     const agents = ctx.get('agents')
     if (agents === undefined || typeof agents.create !== 'function') return null
+    // loader siblings mount concurrently; wait for the complete application
+    // before creating an agent (mirrors the headless driver's readiness await)
+    try { await ctx.get('loader')?.await?.() } catch { /* loader optional */ }
     const modelSvc = ctx.get('agentDefaultModel')
     const selection = (modelSvc && typeof modelSvc.currentSelection === 'function') ? modelSvc.currentSelection() : null
     const agentOptions = selection && selection.model
@@ -109,8 +112,12 @@ export function apply(ctx, config = {}) {
       sessionId,
       meta: { cwd },
       agentOptions,
+      // installModelSelection returns a disposer FUNCTION; setupAndPublish does
+      // `setupCommit?.commit()`, so the callback must return nothing (block
+      // body) exactly like the headless driver. An expression body hands the
+      // disposer to commit() -> "(intermediate value)?.commit is not a function".
       setup: agentPkg && selection
-        ? (agentCtx) => agentPkg.installModelSelection(agentCtx, { current: selection, assembled: undefined })
+        ? (agentCtx) => { agentPkg.installModelSelection(agentCtx, { current: selection, assembled: undefined }) }
         : undefined,
     })
     agent.followup(promptMessage(promptText))
