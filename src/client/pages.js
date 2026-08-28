@@ -260,13 +260,16 @@ function MasDetail(props) {
   if (generated === false) {
     const gs = (genStatus && genStatus.status) || 'idle'
     const stillWorking = gs === 'generating' || gs === 'queued'
+    const failed = gs === 'failed'
     return h('div', { className: 'ps-page' },
       h('div', { className: 'ps-toolbar' }, h(psBtn, { ghost: true, onClick: props.onBack }, '← 返回')),
       h(psCard, null,
-        h('div', { className: 'ps-card-title' }, stillWorking ? '生成中' : '生成未启动'),
-        h('div', { className: 'ps-muted', style: { marginTop: 8 } }, stillWorking
-          ? '生成器会话正在按 POMASA 模式构造系统。完成后自动进入详情；可在桌面会话区看到生成进度。'
-          : '未检测到生成会话，生成服务可能不可用或会话已失败。'),
+        h('div', { className: 'ps-card-title' }, failed ? '生成失败' : stillWorking ? '生成中' : '生成未启动'),
+        h('div', { className: 'ps-muted', style: { marginTop: 8 } }, failed
+          ? '生成会话已结束但未产出 pomasa.json。可能模型不可用或生成中断，请检查会话日志后重试。'
+          : stillWorking
+            ? '生成器会话正在按 POMASA 模式构造系统。完成后自动进入详情；可在桌面会话区看到生成进度。'
+            : '未检测到生成会话，生成服务可能不可用或会话已失败。'),
         h('div', { className: 'ps-caption', style: { marginTop: 10 } }, 'generation.status = ' + str(gs)),
       ),
     )

@@ -112,6 +112,21 @@ e2e/
 - web profile 默认端口 3080，测试一律用 `--port 0`（OS 分配），杜绝端口冲突。
 - 浏览器 E2E 首版以 chromium 单浏览器为标准，桌面 profile 与 web 共享同一套 host 与槽位，不另测。
 
-## 5. 与手动验证的关系
+## 5. 运行条件与已知要点
+
+**L4a 的实际运行方式**：本机 dsh 的 web UI 只在"打开一个真实会话"后渲染对话场景条（Chat/Trajectory/POMASA）。因此浏览器 E2E 无法在空 profile 上复现。servers.mjs 支持两种启动模式：
+
+- 默认：最小 web profile + 插件（无会话，场景条不出现），适合 curl 探活与 host 冒烟。
+- `POMASA_E2E_SRC_HOME=user`：把用户 `~/.dsh` 的 settings.yaml + sessions + storages（排除 profiles 与 node_modules，节省磁盘）拷贝进临时 home，由 dsh 重建最小 web profile 并挂载本插件。界面即与桌面端一致，可打开真实会话、点出 POMASA tab。这是 L4a 的推荐跑法：
+
+```bash
+POMASA_E2E_SRC_HOME=user npx playwright test --config=e2e/playwright.config.ts studio
+```
+
+**L4b live 的运行条件**：需要真实 LLM provider 的 API key 出现在运行环境（`MAKU_BAILIAN_API_KEY`），否则生成会话无法鉴权、静默空转。spec 已按该环境变量门控，未设置则跳过。真实生成耗时以分钟计。
+
+已知不稳定性：会话打开依赖 DSH UI 加载时序，偶发 skip；重跑即可。
+
+## 6. 与手动验证的关系
 
 L1-L4 覆盖自动路径；仍保留一个手动检查项：在用户真实 Desktop profile 里跑一遍 live 冒烟，确认真实使用形态无差异。该检查列为发版 checklist，不进自动化。

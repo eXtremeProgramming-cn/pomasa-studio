@@ -5,7 +5,7 @@ import { loadDescriptor } from './core/descriptor.js'
 import { loadRegistry, upsertMas } from './core/registry.js'
 import { unitListing, unitState, readArtifact } from './core/state.js'
 import { writeUserInput } from './core/prompt.js'
-import { ensureSkill, skillDir, generationPrompt, runPrompt } from './core/skill.js'
+import { ensureSkill, generationPrompt, runPrompt } from './core/skill.js'
 
 export const name = 'pomasa-studio'
 export const inject = ['webServer', 'agentLoop']
@@ -24,6 +24,7 @@ const ROUTES = [
   'run.cancel',
   'run.log',
 ]
+const GEN_PREFIX = 'pomasa-gen-'
 
 function parseQuery(url) {
   const q = new URL(url, 'http://x').searchParams
@@ -70,6 +71,20 @@ export function apply(ctx, config = {}) {
     }
   }
 
+  // If a generation session ends without leaving pomasa.json behind, mark the
+  // MAS as failed instead of staying "generating" forever.
+  if (typeof ctx.on === 'function') {
+    ctx.on('agent/disposed', (info) => {
+      const sessionId = (info && (info.id ?? info.agentId ?? info.sessionId)) || ''
+      if (typeof sessionId !== 'string' || !sessionId.startsWith(GEN_PREFIX)) return
+      const masId = sessionId.slice(GEN_PREFIX.length)
+      if (!genSessions.has(masId)) return
+      const generated = fs.existsSync(path.join(masDir(home(), masId), 'pomasa.json'))
+      genSessions.delete(masId)
+      if (!generated) upsertMas(config, { id: masId, status: 'failed' })
+    })
+  }
+
   function masSummary(m) {
     const live = dispatch(m.id)
     const status =
@@ -90,7 +105,7 @@ export function apply(ctx, config = {}) {
     }
   }
 
-  function createMas(body, res) {
+  function createMas(body) {
     const id = String(body.projectId || '').trim().toLowerCase()
     if (!id) return { ok: false, error: 'projectId is required' }
     if (!body.topic) return { ok: false, error: 'topic is required' }
@@ -185,15 +200,19 @@ export function apply(ctx, config = {}) {
         if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
         const live = dispatch(masId)
         const done = fs.existsSync(path.join(masDir(home(), masId), 'pomasa.json'))
+        let status
         if (done) {
           upsertMas(config, { id: masId, status: 'idle' })
           genSessions.delete(masId)
+          status = 'completed'
+        } else if (live.gen) {
+          status = 'generating'
+        } else {
+          const reg = loadRegistry(config)
+          const m = reg.mas.find((x) => x.id === masId)
+          status = m && m.status === 'failed' ? 'failed' : 'idle'
         }
-        return jsonResponse(res, 200, {
-          ok: true,
-          status: !live.gen ? 'idle' : done ? 'completed' : 'generating',
-          step: live.gen ? 'generating' : null,
-        })
+        return jsonResponse(res, 200, { ok: true, status, step: live.gen ? 'generating' : null })
       }
 
       if (sub === '/unit.list' && req.method === 'GET') {
