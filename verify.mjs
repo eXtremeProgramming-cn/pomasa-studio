@@ -422,4 +422,62 @@ test('L2 client bundle: loads and registers conversation.view', () => {
   assert.equal(registrations[0].name, 'conversation.view')
 })
 
+async function findPnpmReact() {
+  const pnpm = path.join(ROOT, '..', 'deepseek-harness', 'node_modules', '.pnpm')
+  if (!fs.existsSync(pnpm)) return null
+  const reactDir = fs.readdirSync(pnpm).find((d) => /^react@\d/.test(d))
+  const reactDomDir = fs.readdirSync(pnpm).find((d) => d.startsWith('react-dom@'))
+  if (!reactDir || !reactDomDir) return null
+  const base = 'file://' + pnpm + '/'
+  const React = (await import(base + reactDir + '/node_modules/react/index.js')).default
+  const ReactDOMServer = (await import(base + reactDomDir + '/node_modules/react-dom/server.js')).default
+  return { React, SSR: ReactDOMServer }
+}
+
+function buildClientSource(names) {
+  const strip = (src) => src
+    .replace(/^export const inject = .*$/m, '')
+    .replace(/^export function apply/m, 'function apply')
+    .replace(/^export function /gm, 'function ')
+    .replace(/^export const /gm, 'const ')
+    .replace(/^export \{[^}]+\}\s*;?\s*$/gm, '')
+    .replace(/^import .+ from .+;?\s*$/gm, '')
+  return names.map((n) => strip(fs.readFileSync(path.join(ROOT, 'src/client', n), 'utf8'))).join('\n')
+}
+
+test('L2 client renders with real React (guards positional-children bugs)', async () => {
+  const react = await findPnpmReact()
+  if (!react) {
+    console.log('    (skip: react not found under ../deepseek-harness .pnpm)')
+    return
+  }
+  const src = buildClientSource(['api.js', 'md.js', 'components.js', 'pages.js']) +
+    '\nglobalThis.__ps = { MasList, CreateMas, MasDetail, renderMarkdown };'
+  const ctx = vm.createContext({ React: react.React, window: {}, URL, setTimeout, clearTimeout })
+  vm.runInContext('var h = React.createElement;\n' + src, ctx)
+  const ps = ctx.__ps
+  const api = { listMas: () => Promise.resolve({ ok: true, mas: [] }) }
+
+  const listHtml = react.SSR.renderToString(react.React.createElement(ps.MasList, { api, onCreate: () => {}, onOpen: () => {} }))
+  assert.match(listHtml, /POMASA Studio/)
+  assert.match(listHtml, /新建 MAS/)
+  assert.match(listHtml, /<button/)
+
+  const createHtml = react.SSR.renderToString(react.React.createElement(ps.CreateMas, { api, onCancel: () => {}, onDone: () => {} }))
+  assert.match(createHtml, /研究主题与核心问题/)
+  assert.match(createHtml, /生成 MAS/)
+  assert.match(createHtml, /运行方式/)
+
+  const mdHtml = react.SSR.renderToString(react.React.createElement('div', { key: 'd' },
+    ps.renderMarkdown('# 标题\n\n**加粗** `代码` [链接](https://example.com)\n\n- a\n- b\n\n```js\nvar x = 1\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |'),
+  ))
+  assert.match(mdHtml, /<h1>标题<\/h1>/)
+  assert.match(mdHtml, /<strong>加粗<\/strong>/)
+  assert.match(mdHtml, /<a href="https:\/\/example.com"/)
+  assert.match(mdHtml, /<ul>.*<li>a<\/li>/m)
+  assert.match(mdHtml, /<pre class="ps-pre">/)
+  assert.match(mdHtml, /<table>.*<th>A<\/th>/m)
+  assert.match(mdHtml, /<th>B<\/th>/)
+})
+
 await main()

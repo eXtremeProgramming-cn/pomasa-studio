@@ -1,9 +1,27 @@
-// Small building blocks on top of DSW alias tokens. All pure functions.
-function psCard(props, children) {
-  return h('div', Object.assign({ className: 'ps-card' }, props), children)
+// Small building blocks on top of DSW alias tokens.
+// Convention: components take a props object and read children from
+// props.children (React-invoked) OR from a positional second arg (direct JS
+// calls like psField({label}, child)). `k()` resolves both.
+function k(props, children) {
+  // React's server renderer passes an empty object {} as the 2nd arg to
+  // function components; treat it as "not provided".
+  if (children && typeof children === 'object' && !Array.isArray(children) && !children.$$typeof && Object.keys(children).length === 0) {
+    return props && props.children
+  }
+  if (children !== undefined && children !== null) return children
+  return props && props.children
 }
 
-function psBtn(props, label) {
+function psCard(props, children) {
+  const cls = ['ps-card']
+  if (props.className) cls.push(props.className)
+  const rest = Object.assign({}, props)
+  delete rest.children
+  delete rest.className
+  return h('div', Object.assign({}, rest, { className: cls.join(' ') }), k(props, children))
+}
+
+function psBtn(props, children) {
   const cls = ['ps-btn']
   if (props.primary) cls.push('primary')
   if (props.ghost) cls.push('ghost')
@@ -11,17 +29,28 @@ function psBtn(props, label) {
   const rest = Object.assign({}, props)
   delete rest.primary
   delete rest.ghost
-  return h('button', Object.assign({}, rest, { className: cls.join(' '), type: rest.type || 'button' }), label)
+  delete rest.children
+  delete rest.className
+  return h('button', Object.assign({}, rest, { className: cls.join(' '), type: props.type || 'button' }), k(props, children))
 }
 
-function psBadge(status, text) {
-  return h('span', { className: 'ps-badge ' + (status || 'idle') },
+function psBadge(props, children) {
+  const status = (typeof props === 'string' ? props : props.status) || 'idle'
+  return h('span', { className: 'ps-badge ' + status },
     h('span', { className: 'dot' }),
-    text,
+    k(props, children),
   )
 }
 
-function psEmpty(title, hint) {
+function psEmpty(props, children) {
+  let title, hint
+  if (typeof props === 'string') {
+    title = props
+    hint = Array.isArray(children) ? children[0] : children
+  } else {
+    title = props.title
+    hint = props.hint !== undefined ? props.hint : (Array.isArray(children) ? children[0] : children)
+  }
   return h('div', { className: 'ps-empty' },
     h('div', { className: 'ps-empty-glyph' }, '▫'),
     h('div', { className: 'ps-empty-title' }, title),
@@ -32,17 +61,21 @@ function psEmpty(title, hint) {
 function psField(props, children) {
   return h('div', { className: 'ps-field' },
     props.label ? h('label', null, props.label) : null,
-    children,
+    k(props, children),
     props.hint ? h('div', { className: 'hint' }, props.hint) : null,
   )
 }
 
 function psInput(props) {
-  return h('input', Object.assign({ className: 'ps-input' }, props))
+  const rest = Object.assign({}, props)
+  delete rest.children
+  return h('input', Object.assign({ className: 'ps-input' }, rest))
 }
 
 function psTextarea(props) {
-  return h('textarea', Object.assign({ className: 'ps-textarea' }, props))
+  const rest = Object.assign({}, props)
+  delete rest.children
+  return h('textarea', Object.assign({ className: 'ps-textarea' }, rest))
 }
 
 const MAS_STATUS_TEXT = { idle: '空闲', running: '运行中', generating: '生成中', failed: '失败' }

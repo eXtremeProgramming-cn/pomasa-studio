@@ -4,7 +4,7 @@ import { defineConfig } from '@playwright/test'
 // e2e/fixture-mas carries a completed run (run.json + stage indexes + artifacts).
 // Prereqs: npm i -D @playwright/test && npx playwright install chromium
 export default defineConfig({
-  testDir: './e2e/specs',
+  testDir: './specs',
   timeout: 90_000,
   fullyParallel: false,
   workers: 1,
@@ -15,8 +15,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'node e2e/servers.mjs',
-    url: 'http://127.0.0.1:43121/api/session.list',
+    command: 'node servers.mjs',
+    url: 'http://127.0.0.1:43121/pomasa/mas.list',
     reuseExistingServer: false,
     timeout: 120_000,
   },

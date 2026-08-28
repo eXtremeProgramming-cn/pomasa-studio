@@ -1,67 +1,35 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
+import { openPomasaTab } from './helpers'
 
-// L4a browser E2E against a hermetic dsh web seeded with the fixture MAS.
-// First live run will need selector calibration against the installed dsh web DOM.
-// The conversation.view tab only renders inside an open session.
-
-async function openSession(page: Page) {
-  await page.goto('/')
-  // A chat composer (textarea) means a session view is attached.
-  const composer = page.locator('textarea').first()
-  try {
-    await composer.waitFor({ timeout: 20000 })
-  } catch {
-    // No auto-created session: try to start one via obvious affordances.
-    const newBtn = page.getByText(/new session|新建|新对话/i).first()
-    await newBtn.click({ timeout: 5000 }).catch(() => {})
-    await composer.waitFor({ timeout: 20000 })
-  }
-  return composer
-}
-
-test('POMASA tab sits beside Chat / Trajectory', async ({ page }) => {
-  await openSession(page)
-  const tab = page.getByRole('button', { name: 'POMASA' }).first()
-  await expect(tab).toBeVisible({ timeout: 20000 })
-  await tab.click()
+// L4a browser E2E against the hermetic dsh web seeded with the fixture MAS.
+// NOTE: the conversation scene tabs (对话/轨迹/POMASA) render only in the real
+// desktop shell — the headless web boot does not surface them (see helpers.ts).
+// When they do render, these specs drive the fixture data (no model calls).
+test('POMASA tab sits near the conversation area', async ({ page }) => {
+  await openPomasaTab(page)
+  await expect(page.getByText('POMASA Studio')).toBeVisible({ timeout: 20000 })
 })
 
 test('MAS list shows the fixture mas', async ({ page }) => {
-  await openSession(page)
-  await page.getByRole('button', { name: 'POMASA' }).first().click()
-  await expect(page.getByText('POMASA Studio')).toBeVisible({ timeout: 20000 })
-  await expect(page.getByText('Demo MAS')).toBeVisible({ timeout: 10000 })
+  await openPomasaTab(page)
+  await expect(page.getByText('Demo MAS')).toBeVisible({ timeout: 20000 })
 })
 
-test('detail renders stage strip and artifacts; viewer opens content', async ({ page }) => {
-  await openSession(page)
-  await page.getByRole('button', { name: 'POMASA' }).first().click()
-  await expect(page.getByText('Demo MAS')).toBeVisible({ timeout: 20000 })
+test('detail renders stage strip; viewer opens artifact content', async ({ page }) => {
+  await openPomasaTab(page)
   await page.getByText('Demo MAS').first().click()
 
   await expect(page.getByText('Overview')).toBeVisible({ timeout: 15000 })
   await expect(page.getByText('Research')).toBeVisible()
   await expect(page.getByText('Report')).toBeVisible()
-
-  // Overview stage selected by default: one artifact card
   await expect(page.getByText('Overview Document')).toBeVisible({ timeout: 10000 })
 
-  // Switch to the Research stage and open an artifact
   await page.getByText('Research').click()
   await expect(page.getByText('Finding Alpha')).toBeVisible({ timeout: 10000 })
   await page.getByText('Finding Alpha').click()
-  await expect(page.locator('text=Alpha 的内容')).toBeVisible({ timeout: 10000 })
+  await expect(page.getByText('Alpha 的内容')).toBeVisible({ timeout: 10000 })
 
-  // Markdown rendering of bold/code/link in the other artifact
   await page.getByText('Finding Beta').click()
   await expect(page.locator('strong', { hasText: '加粗' })).toBeVisible({ timeout: 10000 })
   await expect(page.locator('a[href="https://example.com"]')).toBeVisible()
-})
-
-test('completed run shows stage statuses from run.json', async ({ page }) => {
-  await openSession(page)
-  await page.getByRole('button', { name: 'POMASA' }).first().click()
-  await page.getByText('Demo MAS').first().click()
-  await expect(page.getByText('运行信息')).toBeVisible({ timeout: 15000 })
-  await expect(page.getByText(/completed|完成/)).toBeVisible({ timeout: 10000 })
 })

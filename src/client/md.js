@@ -54,7 +54,9 @@ function renderMarkdown(md) {
         i += 1
       }
       const header = rows[0] || []
-      const body = rows.slice(1)
+      // Drop the GFM separator row (| --- | :--: |) if present
+      let body = rows.slice(1)
+      if (rows[1] && rows[1].every((c) => /^:?-+:?$/.test(c))) body = rows.slice(2)
       nodes.push(
         h('table', { key: nodes.length },
           h('thead', { key: 'h' }, h('tr', { key: 'r' }, header.map((c, idx) => h('th', { key: idx }, inline(c))))),

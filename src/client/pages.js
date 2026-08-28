@@ -28,7 +28,7 @@ function MasList(props) {
     error ? h('div', { className: 'ps-notice err' }, error) : null,
     mas === null ? h('div', { className: 'ps-muted', style: { padding: '40px 0' } }, '加载中…') :
     mas.length === 0 ?
-      h(psEmpty, '还没有 MAS', '新建一个研究多代理系统，从填写需求开始。') :
+      h(psEmpty, { title: '还没有 MAS', hint: '新建一个研究多代理系统，从填写需求开始。' }) :
       h('div', { className: 'ps-grid' },
         mas.map((m) =>
           h(psCard, { key: m.id, className: 'clickable', onClick: () => props.onOpen(m.id) },
@@ -302,7 +302,7 @@ function MasDetail(props) {
       h('div', null,
         stage ? h('div', { key: 'stage-' + stageIdx },
           stageContractCards(stage, unit, api, openArtifact, artifact, stageColor),
-        ) : h(psEmpty, '选择阶段', ''),
+        ) : h(psEmpty, { title: '选择阶段' }),
       ),
       h('div', null,
         viewer ? h('div', { className: 'ps-viewer' },
@@ -358,7 +358,7 @@ function stageCountText(s) {
 function stageContractCards(stage, unit, api, openArtifact, artifact, stageColor) {
   if (!stage) return null
   if (!stage.contracts || !stage.contracts.length) {
-    return h(psEmpty, '该阶段无产物契约', stage.title + ' 不产出可见产物（如枚举或编排阶段）。')
+    return h(psEmpty, { title: '该阶段无产物契约', hint: stage.title + ' 不产出可见产物（如枚举或编排阶段）。' })
   }
   const all = []
   for (const c of stage.contracts) {
@@ -368,10 +368,10 @@ function stageContractCards(stage, unit, api, openArtifact, artifact, stageColor
     }
   }
   if (stage.status !== 'completed' && !all.length) {
-    return h(psEmpty, '该阶段尚未产出', '状态：' + (STAGE_STATUS_TEXT[stage.status] || stage.status) + '。等待运行推到这一阶段。')
+    return h(psEmpty, { title: '该阶段尚未产出', hint: '状态：' + (STAGE_STATUS_TEXT[stage.status] || stage.status) + '。等待运行推到这一阶段。' })
   }
   if (!all.length) {
-    return h(psEmpty, '该阶段暂无产物', '阶段 ' + stage.title + ' 的 index 为空。')
+    return h(psEmpty, { title: '该阶段暂无产物', hint: '阶段 ' + stage.title + ' 的 index 为空。' })
   }
   return h('div', { className: 'ps-artlist' },
     all.map((a, idx) => {

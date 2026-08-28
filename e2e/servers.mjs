@@ -18,21 +18,39 @@ fs.cpSync(SEED, pomasaHome, { recursive: true })
 
 const env = Object.assign({}, process.env, { DSH_HOME: dshHome, POMASA_HOME: pomasaHome })
 
-execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
-execFileSync('dsh', ['plugin', '--profile', 'web', 'add', ROOT], { env, stdio: 'ignore' })
+let profile = 'web'
+const srcProfile = process.env.POMASA_E2E_SRC_PROFILE
+if (srcProfile === 'desktop') {
+  // Replicate the user's real profile composition (identical bundle set, same
+  // link deps, isolated session state) so the browser E2E renders the same
+  // conversation environment the user sees in the desktop app.
+  const srcProfiles = path.join(os.homedir(), '.dsh', 'profiles')
+  if (!fs.existsSync(path.join(srcProfiles, 'desktop'))) {
+    console.error('desktop profile not found under ' + srcProfiles)
+    process.exit(1)
+  }
+  fs.cpSync(srcProfiles, path.join(dshHome, 'profiles'), { recursive: true })
+  profile = 'desktop'
+} else {
+  execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
+  execFileSync('dsh', ['plugin', '--profile', 'web', 'add', ROOT], { env, stdio: 'ignore' })
+}
 
-const proc = spawn('dsh', ['--profile', 'web', '--no-open', '--port', String(PORT), '--trusted-host', `127.0.0.1:${PORT}`], { env })
+const proc = spawn('dsh', ['--profile', profile, '--no-open', '--port', String(PORT), '--trusted-host', `127.0.0.1:${PORT}`], { env })
 proc.stdout?.on('data', () => {})
 proc.stderr?.on('data', () => {})
 
 for (let i = 0; i < 90; i += 1) {
   await new Promise((r) => setTimeout(r, 500))
   try {
-    const res = await fetch(`http://127.0.0.1:${PORT}/api/session.list`)
+    const res = await fetch(`http://127.0.0.1:${PORT}/pomasa/mas.list`)
     if (res.ok) {
-      console.log(`POMASA_STUDIO_E2E_READY http://127.0.0.1:${PORT}`)
-      setInterval(() => {}, 1 << 30) // keep this process alive; killed by Playwright at teardown
-      break
+      const body = await res.json()
+      if (body && body.ok) {
+        console.log(`POMASA_STUDIO_E2E_READY http://127.0.0.1:${PORT}`)
+        setInterval(() => {}, 1 << 30) // keep this process alive; killed by Playwright at teardown
+        break
+      }
     }
   } catch { /* not up yet */ }
   if (i === 89) {
