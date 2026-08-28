@@ -20,7 +20,8 @@ test('stage artifacts render and viewer opens markdown', async ({ page }) => {
   await openPomasaTab(page)
   await page.getByText('Demo MAS', { exact: true }).first().click()
   await expect(page.getByText('Overview Document', { exact: true })).toBeVisible({ timeout: 15000 })
-  await page.getByText('Research', { exact: true }).click()
+  // stage NAME opens the blueprint modal; select the stage by clicking its count
+  await page.locator('.ps-stage').filter({ hasText: 'Research' }).locator('.ps-stage-count').click()
   await expect(page.getByText('Finding Alpha', { exact: true })).toBeVisible({ timeout: 10000 })
   await page.getByText('Finding Alpha', { exact: true }).click()
   await expect(page.getByText('Alpha 的内容')).toBeVisible({ timeout: 10000 })

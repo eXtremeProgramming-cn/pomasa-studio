@@ -94,12 +94,12 @@ const SINGLE_DESCRIPTOR = {
 
 function writeMas(home, masId, descriptor, { run, files } = {}) {
   const root = path.join(home, masId)
-  fs.mkdirSync(path.join(root, 'workspace', '01.overview'), { recursive: true })
-  fs.mkdirSync(path.join(root, 'workspace', '02.research'), { recursive: true })
+  fs.mkdirSync(path.join(root, '01.overview'), { recursive: true })
+  fs.mkdirSync(path.join(root, '02.research'), { recursive: true })
   fs.writeFileSync(path.join(root, 'pomasa.json'), JSON.stringify(descriptor, null, 2))
-  if (run) fs.writeFileSync(path.join(root, 'workspace', 'run.json'), JSON.stringify(run, null, 2))
+  if (run) fs.writeFileSync(path.join(root, 'run.json'), JSON.stringify(run, null, 2))
   for (const [file, content] of Object.entries(files || {})) {
-    fs.writeFileSync(path.join(root, 'workspace', file), content)
+    fs.writeFileSync(path.join(root, file), content)
   }
 }
 
@@ -175,9 +175,9 @@ test('L1 units: multi mode + declared/enumerated', () => {
     stages: [],
   }
   const root = path.join(home, 'idx')
-  fs.mkdirSync(path.join(root, 'workspace', 'brasil'), { recursive: true })
+  fs.mkdirSync(path.join(root, 'brasil'), { recursive: true })
   fs.writeFileSync(path.join(root, 'pomasa.json'), JSON.stringify(multi))
-  fs.writeFileSync(path.join(root, 'workspace', 'brasil', 'run.json'), JSON.stringify({ status: 'running', stages: [] }))
+  fs.writeFileSync(path.join(root, 'brasil', 'run.json'), JSON.stringify({ status: 'running', stages: [] }))
   fs.writeFileSync(path.join(root, 'units.json'), JSON.stringify(['kenya', 'india']))
   const d = loadDescriptor(path.join(home, 'idx'))
   const listing = unitListing({ pomasaHome: home }, d, 'idx')
@@ -390,7 +390,7 @@ test('L2 lifecycle: run.start spawns sessions, intervene/cancel route', async ()
   assert.ok(runAgent)
   assert.ok(runAgent)
   assert.match(runAgent.calls[0][1].content[0].text, /00\.orchestrator\.md/)
-  assert.match(runAgent.calls[0][1].content[0].text, /workspace/)
+  assert.match(runAgent.calls[0][1].content[0].text, /run\.json/)
 
   const iv = await call(routes, '/pomasa/run.intervene', 'POST', { masId: 'demo', unit: null, message: '再搜一下背景' })
   assert.equal(iv.json.ok, true)
