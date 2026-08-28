@@ -27,6 +27,36 @@ const ROUTES = [
 ]
 const GEN_PREFIX = 'pomasa-gen-'
 
+// agent.followup expects a typed dsh-session UserMessage (content blocks +
+// source). A raw { role, content: string } trips the runtime-context
+// projection's `message.source.kind` read -> "Cannot read ... 'kind'".
+function promptMessage(text) {
+  return { role: 'user', content: [{ type: 'text', text }], source: { kind: 'plugin', plugin: 'pomasa-studio' } }
+}
+
+// Bare agentLoop sessions lack a model, which leaves prompt-template variables
+// like {{model}} unfilled ("prompt variable ... has no value"). Resolution is
+// the profile's agent-default-model in DSH_HOME/settings.yaml.
+function defaultModel() {
+  try {
+    const home = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
+    const txt = fs.readFileSync(path.join(home, 'settings.yaml'), 'utf8')
+    const block = txt.match(/agent-default-model:\s*\n((?:[ \t].*\n)*)/)
+    if (!block) return null
+    let model = null
+    let provider = null
+    for (const line of block[1].split('\n')) {
+      const pm = line.match(/^\s*model:\s*["']?([^\s"']+)/)
+      if (pm) model = pm[1]
+      const pv = line.match(/^\s*provider:\s*["']?([^\s"']+)/)
+      if (pv) provider = pv[1]
+    }
+    return model ? { model, ...(provider ? { provider } : {}) } : null
+  } catch {
+    return null
+  }
+}
+
 function parseQuery(url) {
   const q = new URL(url, 'http://x').searchParams
   const out = {}
@@ -183,9 +213,9 @@ export function apply(ctx, config = {}) {
     }
 
     const sessionId = `pomasa-gen-${id}`
-    const agent = agentLoop.create(sessionId, {}, { cwd: root })
+    const agent = agentLoop.create(sessionId, defaultModel() || {}, { cwd: root })
     genSessions.set(id, { agent, sessionId, startedAt: Date.now() })
-    agent.followup({ role: 'user', content: generationPrompt(gens, id, root) })
+    agent.followup(promptMessage(generationPrompt(gens, id, root)))
     return { ok: true, masId: id, generation: 'session' }
   }
 
@@ -202,9 +232,9 @@ export function apply(ctx, config = {}) {
     for (const { key, root } of targets) {
       fs.mkdirSync(root, { recursive: true })
       const sessionId = `pomasa-run-${masId}-${key || 'single'}`
-      const agent = agentLoop.create(sessionId, {}, { cwd: root })
+      const agent = agentLoop.create(sessionId, defaultModel() || {}, { cwd: root })
       runSessions.set(`${masId}|${key || ''}`, { agent, sessionId, startedAt: Date.now() })
-      agent.followup({ role: 'user', content: runPrompt(masDir(home(), masId), root, key) })
+      agent.followup(promptMessage(runPrompt(masDir(home(), masId), root, key)))
       launched.push(key)
     }
     upsertMas(config, { id: masId, status: 'running', lastRunAt: Date.now() })
@@ -338,7 +368,7 @@ export function apply(ctx, config = {}) {
         const body = await readBody(req)
         const s = runSessions.get(`${body.masId}|${body.unit || ''}`)
         if (!s) return jsonResponse(res, 404, { ok: false, error: 'no active run session' })
-        s.agent.followup({ role: 'user', content: String(body.message || '') })
+        s.agent.followup(promptMessage(String(body.message || '')))
         return jsonResponse(res, 200, { ok: true })
       }
 

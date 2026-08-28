@@ -37,8 +37,9 @@ fs.cpSync(SEED, pomasaHome, { recursive: true })
 let env = Object.assign({}, process.env, {
   DSH_HOME: dshHome,
   POMASA_HOME: pomasaHome,
-  // E2E never calls a real LLM: generation is mocked (fast, deterministic).
-  POMASA_TEST_FAST_GENERATION: '1',
+  // E2E never calls a real LLM: generation is mocked (fast, deterministic),
+  // unless POMASA_E2E_FAST=0 opts into the real provider (needs API key).
+  POMASA_TEST_FAST_GENERATION: process.env.POMASA_E2E_FAST === '0' ? '0' : '1',
 })
 
 if (process.env.POMASA_E2E_SRC_HOME === 'user') {
