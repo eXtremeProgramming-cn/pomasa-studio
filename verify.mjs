@@ -261,8 +261,23 @@ function mockCtx() {
       return agent
     },
   }
-  const ctx = { get: (k) => ({ webServer, agentLoop }[k]) }
-  return { ctx, routes, agents, agentLoop }
+  const agentsMap = new Map()
+  const agentRegistry = {
+    create: async ({ sessionId, meta, agentOptions }) => {
+      const agent = {
+        id: sessionId,
+        meta,
+        agentOptions,
+        calls: [],
+        followup(m) { this.calls.push(['followup', m]) },
+        cancel(w) { this.calls.push(['cancel', w]) },
+      }
+      agentsMap.set(sessionId, agent)
+      return { agent }
+    },
+  }
+  const ctx = { get: (k) => ({ webServer, agentLoop, agents: agentRegistry, agentDefaultModel: { currentSelection: () => ({ provider: 'mock', model: 'mock-model' }) } }[k]) }
+  return { ctx, routes, agents: agentsMap, agentLoop, agentRegistry }
 }
 
 function mockRes() {

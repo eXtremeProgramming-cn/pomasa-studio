@@ -90,6 +90,32 @@ export function apply(ctx, config = {}) {
     return fs.existsSync(masDir(home(), masId))
   }
 
+  // Bare agentLoop.create sessions lack the model selection ({{model}} etc.) and
+  // the preset setup that real sessions get. Mirror the harness's own headless
+  // driver instead: resolve the agentDefaultModel selection, create the agent via
+  // the agents registry (which composes the session the normal way), and install
+  // the model selection into the agent's scope.
+  async function createAgentSession(sessionId, cwd, promptText) {
+    const agents = ctx.get('agents')
+    if (agents === undefined || typeof agents.create !== 'function') return null
+    const modelSvc = ctx.get('agentDefaultModel')
+    const selection = (modelSvc && typeof modelSvc.currentSelection === 'function') ? modelSvc.currentSelection() : null
+    const agentOptions = selection && selection.model
+      ? { provider: selection.provider, model: selection.model }
+      : defaultModel() || {}
+    const agentPkg = await import('@deepseek-ai/dsh-agent').catch(() => null)
+    const { agent } = await agents.create({
+      sessionId,
+      meta: { cwd },
+      agentOptions,
+      setup: agentPkg && selection
+        ? (agentCtx) => agentPkg.installModelSelection(agentCtx, { current: selection, assembled: undefined })
+        : undefined,
+    })
+    agent.followup(promptMessage(promptText))
+    return agent
+  }
+
   function dispatch(masId, unitKey) {
     const gensSession = genSessions.get(masId)
     const runKey = `${masId}|${unitKey || ''}`
@@ -153,7 +179,7 @@ export function apply(ctx, config = {}) {
     }
   }
 
-  function createMas(body) {
+  async function createMas(body) {
     const id = String(body.projectId || '').trim().toLowerCase()
     if (!id) return { ok: false, error: 'projectId is required' }
     if (!body.topic) return { ok: false, error: 'topic is required' }
@@ -213,13 +239,13 @@ export function apply(ctx, config = {}) {
     }
 
     const sessionId = `pomasa-gen-${id}`
-    const agent = agentLoop.create(sessionId, defaultModel() || {}, { cwd: root })
+    const agent = await createAgentSession(sessionId, root, generationPrompt(gens, id, root))
+    if (!agent) return { ok: true, masId: id, generation: 'external' }
     genSessions.set(id, { agent, sessionId, startedAt: Date.now() })
-    agent.followup(promptMessage(generationPrompt(gens, id, root)))
     return { ok: true, masId: id, generation: 'session' }
   }
 
-  function startRun(body) {
+  async function startRun(body) {
     const { masId } = body
     if (!hasMas(masId)) return { ok: false, error: `no such mas: ${masId}` }
     const descriptor = loadDescriptor(masDir(home(), masId))
@@ -232,9 +258,9 @@ export function apply(ctx, config = {}) {
     for (const { key, root } of targets) {
       fs.mkdirSync(root, { recursive: true })
       const sessionId = `pomasa-run-${masId}-${key || 'single'}`
-      const agent = agentLoop.create(sessionId, defaultModel() || {}, { cwd: root })
+      const agent = await createAgentSession(sessionId, root, runPrompt(masDir(home(), masId), root, key))
+      if (!agent) return { ok: false, error: 'agent 会话服务不可用（agents.create 未提供）' }
       runSessions.set(`${masId}|${key || ''}`, { agent, sessionId, startedAt: Date.now() })
-      agent.followup(promptMessage(runPrompt(masDir(home(), masId), root, key)))
       launched.push(key)
     }
     upsertMas(config, { id: masId, status: 'running', lastRunAt: Date.now() })
@@ -352,14 +378,14 @@ export function apply(ctx, config = {}) {
       // ---- writes ----
       if (sub === '/mas.create' && req.method === 'POST') {
         const body = await readBody(req)
-        const r = createMas(body)
+        const r = await createMas(body)
         if (!r.ok) return jsonResponse(res, 400, r)
         return jsonResponse(res, 200, r)
       }
 
       if (sub === '/run.start' && req.method === 'POST') {
         const body = await readBody(req)
-        const r = startRun(body)
+        const r = await startRun(body)
         if (!r.ok) return jsonResponse(res, 400, r)
         return jsonResponse(res, 200, r)
       }
