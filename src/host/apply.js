@@ -95,6 +95,24 @@ export function apply(ctx, config = {}) {
     return `${prefix}-${sessionSeq}-${Date.now()}`
   }
 
+  // Sessions group in the DSH sidebar under the workspace whose canonical path
+  // EQUALS their cwd (exact match). Register a workspace record for the MAS
+  // generation dir and each run unit root so our sessions leave "Ungrouped".
+  // Non-fatal: if the registry service is unavailable, grouping simply falls
+  // back to Ungrouped.
+  async function ensureWorkspace(cwd, title) {
+    let wr
+    try { wr = ctx.get('workspaceRegistry') } catch { return }
+    if (!wr || typeof wr.resolveByPath !== 'function' || typeof wr.create !== 'function') return
+    try {
+      let ws = await wr.resolveByPath(cwd)
+      if (!ws) ws = await wr.create(cwd)
+      if (title && ws && typeof ws.setTitle === 'function') {
+        try { await ws.setTitle(title) } catch { /* title is cosmetic */ }
+      }
+    } catch { /* workspace registry may reject non-directory paths; ignore */ }
+  }
+
   function hasMas(masId) {
     return fs.existsSync(masDir(home(), masId))
   }
@@ -245,6 +263,8 @@ export function apply(ctx, config = {}) {
       createdAt: Date.now(),
     })
 
+    await ensureWorkspace(root, `pomasa · ${id}`)
+
     // copy any uploaded ref materials into references/input/
     const refs = Array.isArray(body.refFiles) ? body.refFiles : []
     for (const rf of refs) {
@@ -306,6 +326,7 @@ export function apply(ctx, config = {}) {
     const runSessionIds = {}
     for (const { key, root } of targets) {
       fs.mkdirSync(root, { recursive: true })
+      await ensureWorkspace(root, `pomasa · ${masId}`)
       const sessionId = newSessionId('pomasa-run')
       const agent = await createAgentSession(sessionId, root, runPrompt(masDir(home(), masId), root, key))
       if (!agent) return { ok: false, error: 'agent 会话服务不可用（agents.create 未提供）' }
