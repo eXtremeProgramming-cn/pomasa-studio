@@ -1,4 +1,14 @@
 // Three pages: MAS list, create form, MAS detail. Data flows through the host API only.
+// str() guards every dynamic text node so a non-string value from index.json or
+// run.json degrades to text instead of crashing the render tree.
+
+function str(v) {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'string') return v
+  if (typeof v === 'number') return String(v)
+  try { return JSON.stringify(v) } catch { return String(v) }
+}
+
 function MasList(props) {
   const api = props.api
   const [mas, setMas] = React.useState(null)
@@ -32,11 +42,11 @@ function MasList(props) {
       h('div', { className: 'ps-grid' },
         mas.map((m) =>
           h(psCard, { key: m.id, className: 'clickable', onClick: () => props.onOpen(m.id) },
-            h('div', { className: 'ps-card-title' }, m.name || m.id),
-            h('div', { className: 'ps-card-desc' }, m.description || ''),
+            h('div', { className: 'ps-card-title' }, str(m.name || m.id)),
+            h('div', { className: 'ps-card-desc' }, str(m.description || '')),
             h('div', { className: 'ps-card-footer' },
-              h(psBadge, MAS_STATUS_BADGE[m.status] || 'idle', MAS_STATUS_TEXT[m.status] || m.status),
-              h('span', { className: 'ps-muted' }, 'ID: ' + m.id),
+              h(psBadge, { status: MAS_STATUS_BADGE[m.status] || 'idle' }, MAS_STATUS_TEXT[m.status] || m.status),
+              h('span', { className: 'ps-muted' }, 'ID: ' + str(m.id)),
               h('span', { className: 'spacer', style: { flex: 1 } }),
               h('span', { className: 'ps-caption' }, m.lastRunAt ? '上次运行 ' + fmtTime(m.lastRunAt) : '未运行'),
             ),
@@ -70,7 +80,11 @@ function CreateMas(props) {
       })
       const r = await api.createMas(fields)
       if (!r.ok) { setError(r.error || '创建失败'); return }
-      props.onDone(r.masId, r.generation || '')
+      if (r.generation === 'external') {
+        setError('未找到生成会话服务（agentLoop）。系统已创建，请回列表后台手动生成。')
+        return
+      }
+      props.onDone(r.masId)
     } catch (e) {
       setError(String(e && e.message || e))
     } finally {
@@ -112,8 +126,10 @@ function CreateMas(props) {
             h('option', { value: 'single' }, '整体跑一次'),
             h('option', { value: 'multi' }, '拆成多个单元'),
           )),
-        psField({ label: '单元维度（multi 时）', hint: '如：每个国家一个单元、每个日期一期。' },
-          h(psInput, { value: f.runDimensions, onChange: set('runDimensions'), disabled: f.runMode !== 'multi' })),
+        h('div', { className: 'ps-field h-nowrap' },
+          h('label', null, '单元维度（multi 时）'),
+          h(psInput, { value: f.runDimensions, onChange: set('runDimensions'), disabled: f.runMode !== 'multi' }),
+        ),
       ),
       f.runMode === 'multi' ?
         psField({ label: '初始单元列表（每行一个，可留空由系统枚举）' }, h(psTextarea, { value: f.runUnits, onChange: set('runUnits') })) : null,
@@ -146,8 +162,9 @@ function MasDetail(props) {
   const [unit, setUnit] = React.useState(null)
   const [state, setState] = React.useState(null)
   const [stageSel, setStageSel] = React.useState(0)
-  const [artifact, setArtifact] = React.useState(null) // { contract, entry }
-  const [viewer, setViewer] = React.useState(null)    // { path, content, format }
+  const [artifact, setArtifact] = React.useState(null)
+  const [viewer, setViewer] = React.useState(null)
+  const [genStatus, setGenStatus] = React.useState(null)
   const [logOpen, setLogOpen] = React.useState(false)
   const [log, setLog] = React.useState([])
   const [intervene, setIntervene] = React.useState('')
@@ -163,13 +180,15 @@ function MasDetail(props) {
         const ul = await api.unitList(masId)
         setUnits(ul.units || [])
         const defaultUnit = ul.units && ul.units[0] ? ul.units[0].key : null
-        const current = defaultUnit || unit || null
-        setUnit((prev) => (prev === null || prev === undefined ? current : prev))
-        const cur = unit !== null && unit !== undefined ? unit : current
+        setUnit((prev) => (prev === null || prev === undefined ? defaultUnit : prev))
+        const cur = unit !== null && unit !== undefined ? unit : defaultUnit
         if (cur !== undefined) {
           const st = await api.unitState(masId, cur)
           if (st.ok) setState(st)
         }
+      } else {
+        const gs = await api.generationStatus(masId)
+        if (gs.ok) setGenStatus(gs)
       }
     } catch (e) {
       setNotice({ kind: 'err', text: String(e && e.message || e) })
@@ -182,15 +201,16 @@ function MasDetail(props) {
     return () => clearInterval(t)
   }, [refresh])
 
-  const openArtifact = async (contract, entry) => {
-    setArtifact({ contract, entry })
+  const openArtifact = async (artifactPath, entry) => {
+    setArtifact({ path: artifactPath, entry })
     setViewer(null)
+    const label = str((entry && (entry.file || entry.path)) || artifactPath)
     try {
-      const r = await api.artifact(masId, unit, entry.file)
-      if (r.ok) setViewer({ path: entry.file, content: r.content, format: r.format })
-      else setViewer({ path: entry.file, content: r.error || '读取失败', format: 'text' })
+      const r = await api.artifact(masId, unit, artifactPath)
+      if (r.ok) setViewer({ path: label, content: r.content, format: r.format })
+      else setViewer({ path: label, content: r.error || '读取失败', format: 'text' })
     } catch (e) {
-      setViewer({ path: entry.file, content: String(e && e.message || e), format: 'text' })
+      setViewer({ path: label, content: String(e && e.message || e), format: 'text' })
     }
   }
 
@@ -201,7 +221,7 @@ function MasDetail(props) {
       const r = await api.startRun(masId, targets)
       if (!r.ok) setNotice({ kind: 'err', text: r.error || '启动失败' })
       else {
-        setNotice({ kind: 'ok', text: '运行已启动 ' + (targets && targets.length ? '（' + targets.length + ' 个单元）' : '') })
+        setNotice({ kind: 'ok', text: '运行已启动' + (targets && targets.length ? '（' + targets.length + ' 个单元）' : '') })
         refresh()
       }
     } catch (e) { setNotice({ kind: 'err', text: String(e && e.message || e) }) }
@@ -220,44 +240,49 @@ function MasDetail(props) {
     const open = !logOpen
     setLogOpen(open)
     if (open) {
-      try { const r = await api.runLog(masId, unit); if (r.ok) setLog(r.events) } catch (e) { /* ignore */ }
+      try { const r = await api.runLog(masId, unit); if (r.ok) setLog(r.events || []) } catch (e) { /* ignore */ }
     }
   }
 
   const downloadMd = () => {
     if (!viewer) return
-    const blob = new Blob([viewer.content], { type: 'text/markdown;charset=utf-8' })
+    const blob = new Blob([String(viewer.content)], { type: 'text/markdown;charset=utf-8' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = viewer.path.split('/').pop() || 'artifact.md'
+    a.download = str(viewer.path).split('/').pop() || 'artifact.md'
     document.body.appendChild(a)
     a.click()
     a.remove()
     URL.revokeObjectURL(a.href)
   }
 
-  // generating state
+  // generating state: live status from the host, not a static card
   if (generated === false) {
+    const gs = (genStatus && genStatus.status) || 'idle'
+    const stillWorking = gs === 'generating' || gs === 'queued'
     return h('div', { className: 'ps-page' },
       h('div', { className: 'ps-toolbar' }, h(psBtn, { ghost: true, onClick: props.onBack }, '← 返回')),
       h(psCard, null,
-        h('div', { className: 'ps-card-title' }, '生成中'),
-        h('div', { className: 'ps-muted', style: { marginTop: 8 } }, '生成器会话正在按 POMASA 模式构造系统，请稍候。'),
+        h('div', { className: 'ps-card-title' }, stillWorking ? '生成中' : '生成未启动'),
+        h('div', { className: 'ps-muted', style: { marginTop: 8 } }, stillWorking
+          ? '生成器会话正在按 POMASA 模式构造系统。完成后自动进入详情；可在桌面会话区看到生成进度。'
+          : '未检测到生成会话，生成服务可能不可用或会话已失败。'),
+        h('div', { className: 'ps-caption', style: { marginTop: 10 } }, 'generation.status = ' + str(gs)),
       ),
     )
   }
 
-  const despName = descriptor && (descriptor.name || descriptor.id)
+  const despName = str((descriptor && (descriptor.name || descriptor.id)) || '')
 
   if (generated === null) {
     return h('div', { className: 'ps-page' }, h('div', { className: 'ps-muted' }, '加载中…'))
   }
 
   const stages = (state && state.stages) || []
-  const stage = stages[stageSel] || stages[0]
+  const stage = stages[stageSel] || stages[0] || null
   const stageIdx = stage ? stage.index : 0
   const run = (state && state.run) || null
-  const runStatus = run ? run.status : 'waiting'
+  const runStatus = run ? str(run.status) : 'waiting'
 
   return h('div', { className: 'ps-page' },
     h('div', { className: 'ps-toolbar' },
@@ -265,22 +290,22 @@ function MasDetail(props) {
       h('div', null,
         h('h1', { className: 'ps-h1', style: { margin: 0 } }, despName),
         h('div', { className: 'ps-sub', style: { marginBottom: 0 } },
-          'ID ' + masId + (descriptor && descriptor.schemaVersion ? ' · schema ' + descriptor.schemaVersion : ''),
+          'ID ' + str(masId) + (descriptor && descriptor.schemaVersion ? ' · schema ' + str(descriptor.schemaVersion) : ''),
         ),
       ),
       h('div', { className: 'spacer' }),
       runStatus === 'running' || runStatus === 'queued' ?
         h(psBtn, { ghost: true, onClick: () => api.cancelRun(masId, unit).then(() => refresh()) }, '取消运行') : null,
-      h(psBtn, { primary: true, disabled: busy, onClick: () => startRun(units.filter((u) => !u.run).map((u) => u.key)) }, '运行'),
+      h(psBtn, { primary: true, disabled: busy, onClick: () => startRun(Array.isArray(units) ? units.filter((u) => !u.run).map((u) => u.key) : []) }, '运行'),
     ),
 
-    notice ? h('div', { className: 'ps-notice ' + notice.kind }, notice.text) : null,
+    notice ? h('div', { className: 'ps-notice ' + notice.kind }, str(notice.text)) : null,
 
-    units.length > 1 ? h(psCard, null,
+    Array.isArray(units) && units.length > 1 ? h(psCard, null,
       h('div', { className: 'ps-card-title', style: { marginBottom: 10 } }, '单元'),
       h('div', null, units.map((u) =>
-        h('div', { key: u.key, className: 'ps-unit-row' + (u.key === unit ? ' on' : ''), onClick: () => { setUnit(u.key); setStageSel(0); setArtifact(null); setViewer(null) } },
-          h('span', null, u.key),
+        h('div', { key: str(u.key), className: 'ps-unit-row' + (u.key === unit ? ' on' : ''), onClick: () => { setUnit(u.key); setStageSel(0); setArtifact(null); setViewer(null) } },
+          h('span', null, str(u.key)),
           h('span', { className: 'spacer', style: { flex: 1 } }),
           u.run ? psBadge('completed', '已运行') : u.planned ? psBadge('generating', '已规划未运行') : psBadge('idle', '未运行'),
           h(psBtn, { ghost: true, style: { padding: '3px 10px' }, onClick: (e) => { e.stopPropagation(); startRun([u.key]) } }, '运行'),
@@ -291,8 +316,8 @@ function MasDetail(props) {
     h('div', { className: 'ps-stages', style: { marginTop: 20 } },
       stages.map((s) =>
         h('div', { key: s.index, className: 'ps-stage' + (s.index === stageIdx ? ' on' : ''), onClick: () => { setStageSel(stages.indexOf(s)); setArtifact(null); setViewer(null) } },
-          h('div', { className: 'ps-stage-on', style: stageColor(s.status) }),
-          h('div', { className: 'ps-stage-name' }, s.title),
+          h('div', { className: 'ps-stage-on', style: { background: stageColor(s.status) } }),
+          h('div', { className: 'ps-stage-name' }, str(s.title)),
           h('div', { className: 'ps-stage-count' }, stageCountText(s)),
         ),
       ),
@@ -300,36 +325,36 @@ function MasDetail(props) {
 
     h('div', { className: 'ps-panel' },
       h('div', null,
-        stage ? h('div', { key: 'stage-' + stageIdx },
-          stageContractCards(stage, unit, api, openArtifact, artifact, stageColor),
+        stage ? h('div', { key: 'stage-' + str(stageIdx) },
+          stageContractCards(stage, unit, api, openArtifact, artifact),
         ) : h(psEmpty, { title: '选择阶段' }),
       ),
       h('div', null,
         viewer ? h('div', { className: 'ps-viewer' },
           h('div', { className: 'ps-viewer-head' },
             h(psBtn, { ghost: true, onClick: () => { setArtifact(null); setViewer(null) } }, '✕'),
-            h('span', { style: { flex: 1, fontWeight: 600, fontSize: 15 } }, viewer.path),
-            h('span', { className: 'ps-muted' }, viewer.format),
+            h('span', { style: { flex: 1, fontWeight: 600, fontSize: 15 } }, str(viewer.path)),
+            h('span', { className: 'ps-muted' }, str(viewer.format)),
             h(psBtn, { ghost: true, onClick: downloadMd }, '下载 Markdown'),
             h(psBtn, { ghost: true, disabled: true, title: 'docx / pdf 导出即将支持' }, '导出 docx/pdf'),
           ),
           h('div', { className: 'ps-viewer-body' },
             viewer.format === 'json'
-              ? h('pre', { className: 'ps-pre' }, prettyJson(viewer.content))
+              ? h('pre', { className: 'ps-pre' }, prettyJson(String(viewer.content || '')))
               : viewer.format === 'markdown'
-                ? renderMarkdown(viewer.content)
-                : h('pre', { className: 'ps-pre' }, viewer.content),
+                ? renderMarkdown(String(viewer.content || ''))
+                : h('pre', { className: 'ps-pre' }, String(viewer.content || '')),
           ),
         ) :
           h('div', { className: 'ps-run-info' },
             run ? h(psCard, null,
               h('div', { className: 'ps-card-title', style: { marginBottom: 8 } }, '运行信息'),
               h('div', { className: 'ps-muted', style: { display: 'grid', gap: 4 } },
-                h('span', null, '单元：' + (run.unit || 'single')),
-                h('span', null, '状态：' + runStatus),
+                h('span', null, '单元：' + str(run.unit || 'single')),
+                h('span', null, '状态：' + str(runStatus)),
                 h('span', null, '启动：' + fmtTime(run.created_at || run.started_at)),
                 h('span', null, '结束：' + fmtTime(run.finished_at)),
-                h('span', null, '触发：' + (run.trigger || '—') + (run.runtime ? ' · 运行时 ' + run.runtime : '')),
+                h('span', null, '触发：' + str(run.trigger || '—') + (run.runtime ? ' · 运行时 ' + str(run.runtime) : '')),
               ),
             ) : null,
             h(psLogPanel, { logOpen, log, toggleLog, onIntervene: sendIntervene, intervene, setIntervene, runStatus }),
@@ -347,47 +372,65 @@ function stageColor(status) {
     failed: 'var(--dsw-alias-state-error-primary)',
     skipped: 'transparent',
     aborted: 'var(--dsw-alias-state-warn-primary)',
-  }[status] || 'transparent'
+  }[stateColorSafe(status)] || 'transparent'
+}
+
+function stateColorSafe(status) {
+  return typeof status === 'string' ? status : 'waiting'
 }
 
 function stageCountText(s) {
-  if (STAGE_STATUS_TEXT[s.status]) return s.artifactCount + ' 产物 · ' + STAGE_STATUS_TEXT[s.status]
-  return s.artifactCount + ' 产物'
+  const status = (s && STAGE_STATUS_TEXT[s.status] ? str(s.artifactCount) + ' 产物 · ' + STAGE_STATUS_TEXT[s.status] : str(s.artifactCount) + ' 产物')
+  return status
 }
 
-function stageContractCards(stage, unit, api, openArtifact, artifact, stageColor) {
+function stageContractCards(stage, unit, api, openArtifact, artifact) {
   if (!stage) return null
   if (!stage.contracts || !stage.contracts.length) {
-    return h(psEmpty, { title: '该阶段无产物契约', hint: stage.title + ' 不产出可见产物（如枚举或编排阶段）。' })
+    return h(psEmpty, { title: '该阶段无产物契约', hint: str(stage.title) + ' 不产出可见产物（如枚举或编排阶段）。' })
   }
   const all = []
   for (const c of stage.contracts) {
     const entries = Array.isArray(c.index) ? c.index : []
-    for (const e of entries) {
-      all.push({ contract: c.id, contractTitle: c.title, entry: e })
+    for (const e of entries || []) {
+      if (e && typeof e === 'object') {
+        all.push({ contract: c.id, contractTitle: c.title, entry: e, path: resolveArtifactPath(c, e) })
+      }
     }
   }
   if (stage.status !== 'completed' && !all.length) {
-    return h(psEmpty, { title: '该阶段尚未产出', hint: '状态：' + (STAGE_STATUS_TEXT[stage.status] || stage.status) + '。等待运行推到这一阶段。' })
+    return h(psEmpty, { title: '该阶段尚未产出', hint: '状态：' + str(STAGE_STATUS_TEXT[stage.status] || stage.status) + '。等待运行推到这一阶段。' })
   }
   if (!all.length) {
-    return h(psEmpty, { title: '该阶段暂无产物', hint: '阶段 ' + stage.title + ' 的 index 为空。' })
+    return h(psEmpty, { title: '该阶段暂无产物', hint: '阶段 ' + str(stage.title) + ' 的 index 为空。' })
   }
   return h('div', { className: 'ps-artlist' },
     all.map((a, idx) => {
-      const active = artifact && artifact.contract === a.contract && artifact.entry.file === a.entry.file
-      return h('div', { key: idx, className: 'ps-card ps-art' + (active ? ' on' : ''), onClick: () => openArtifact(a.contract, a.entry) },
-        h('div', { className: 'ps-art-title' }, a.entry.title || a.entry.id || a.entry.path || a.entry.file || '(未命名)'),
-        a.entry.subtitle ? h('div', { className: 'ps-art-sub' }, a.entry.subtitle) : null,
-        a.entry.summary ? h('div', { className: 'ps-art-sum' }, a.entry.summary) : null,
+      const e = a.entry
+      const title = str(e.title || e.id || e.path || e.file) || '(未命名)'
+      const file = str(e.file || e.path)
+      const active = artifact && artifact.path === a.path
+      return h('div', { key: idx, className: 'ps-card ps-art' + (active ? ' on' : ''), onClick: () => openArtifact(a.path, a.entry) },
+        h('div', { className: 'ps-art-title' }, title),
+        e.subtitle ? h('div', { className: 'ps-art-sub' }, str(e.subtitle)) : null,
+        e.summary ? h('div', { className: 'ps-art-sum' }, str(e.summary)) : null,
         h('div', { className: 'ps-art-meta' },
-          h('span', null, (a.entry.file || a.entry.path || '').split('/').pop()),
-          a.entry.size ? h('span', null, fmtSize(a.entry.size)) : null,
-          a.contract ? h('span', null, a.contractTitle || a.contract) : null,
+          h('span', null, file.split('/').pop()),
+          e.size ? h('span', null, fmtSize(e.size)) : null,
+          a.contract ? h('span', null, str(a.contractTitle || a.contract)) : null,
         ),
       )
     }),
   )
+}
+
+// OBV-01: an index entry's `file` resolves relative to the index.json's own
+// directory, not the unit root. Compose the unit-root-relative path here.
+function resolveArtifactPath(contract, entry) {
+  const seg = str((entry && (entry.file || entry.path)) || '')
+  if (!contract || !contract.indexPath || !seg) return seg
+  const dir = String(contract.indexPath).split('/').slice(0, -1).join('/')
+  return (dir ? dir + '/' : '') + seg
 }
 
 function fmtSize(n) {
@@ -410,7 +453,7 @@ function psLogPanel(props) {
       props.runStatus === 'running' || props.runStatus === 'queued' ? psBadge('running', '运行中') : null,
     ),
     props.logOpen ? h('div', { className: 'ps-log-body' },
-      props.log.length ? props.log.map((e, i) => h('div', { key: i }, JSON.stringify(e))) :
+      props.log && props.log.length ? props.log.map((e, i) => h('div', { key: i }, str(e))) :
         '暂无事件（MAS 未写 events.jsonl 或尚未运行）。',
       h('div', { className: 'ps-field', style: { marginBottom: 0 } },
         h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },

@@ -1,5 +1,9 @@
-// Boot a hermetic dsh web for browser E2E (L4a): temp DSH_HOME + seeded
-// POMASA_HOME from e2e/fixture-mas. Dies when the Playwright webServer is killed.
+// Boot a hermetic dsh web for browser E2E. Two modes:
+//   default:  empty web profile + this plugin (fixture POMASA_HOME)
+//   POMASA_E2E_SRC_HOME=user: copy the user's whole ~/.dsh (settings, sessions,
+//   profiles) into a temp DSH_HOME, so the browser sees the same environment
+//   as the desktop app (conversation scenes included). Temp home is deleted on
+//   exit.
 import { spawn, execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -10,37 +14,52 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const SEED = path.join(ROOT, 'e2e', 'fixture-mas')
 const PORT = Number(process.env.POMASA_E2E_PORT || 43121)
 
-const base = path.join(os.tmpdir(), `pomasa-e2e-${process.pid}`)
+const base = '/tmp/pomasa-e2e-live'
+fs.rmSync(base, { recursive: true, force: true })
 const pomasaHome = path.join(base, 'pomasa_home')
 const dshHome = path.join(base, 'dsh_home')
 fs.mkdirSync(dshHome, { recursive: true })
+
+let proc
+
+function cleanup() {
+  try {
+    if (proc) proc.kill('SIGKILL')
+    fs.rmSync(base, { recursive: true, force: true })
+  } catch { /* ignore */ }
+}
+process.on('exit', cleanup)
+process.on('SIGTERM', () => { cleanup(); process.exit(0) })
+process.on('SIGINT', () => { cleanup(); process.exit(0) })
+
 fs.cpSync(SEED, pomasaHome, { recursive: true })
 
-const env = Object.assign({}, process.env, { DSH_HOME: dshHome, POMASA_HOME: pomasaHome })
+let env = Object.assign({}, process.env, { DSH_HOME: dshHome, POMASA_HOME: pomasaHome })
 
-let profile = 'web'
-const srcProfile = process.env.POMASA_E2E_SRC_PROFILE
-if (srcProfile === 'desktop') {
-  // Replicate the user's real profile composition (identical bundle set, same
-  // link deps, isolated session state) so the browser E2E renders the same
-  // conversation environment the user sees in the desktop app.
-  const srcProfiles = path.join(os.homedir(), '.dsh', 'profiles')
-  if (!fs.existsSync(path.join(srcProfiles, 'desktop'))) {
-    console.error('desktop profile not found under ' + srcProfiles)
+if (process.env.POMASA_E2E_SRC_HOME === 'user') {
+  // Copy the user's sessions + model settings (not profiles, whose node_modules
+  // would blow the copy); dsh auto-creates a fresh web profile + this plugin.
+  const src = path.join(os.homedir(), '.dsh')
+  if (!fs.existsSync(src)) {
+    console.error('~/.dsh not found')
     process.exit(1)
   }
-  fs.cpSync(srcProfiles, path.join(dshHome, 'profiles'), { recursive: true })
-  profile = 'desktop'
+  fs.cpSync(src, dshHome, {
+    recursive: true,
+    filter: (p) => !p.includes('node_modules') && !p.split(path.sep).includes('profiles'),
+  })
+  execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
+  execFileSync('dsh', ['plugin', '--profile', 'web', 'add', ROOT], { env, stdio: 'ignore' })
 } else {
   execFileSync('dsh', ['--profile', 'web', '--help'], { env, stdio: 'ignore' })
   execFileSync('dsh', ['plugin', '--profile', 'web', 'add', ROOT], { env, stdio: 'ignore' })
 }
 
-const proc = spawn('dsh', ['--profile', profile, '--no-open', '--port', String(PORT), '--trusted-host', `127.0.0.1:${PORT}`], { env })
+proc = spawn('dsh', ['--profile', 'web', '--no-open', '--port', String(PORT), '--trusted-host', `127.0.0.1:${PORT}`], { env })
 proc.stdout?.on('data', () => {})
 proc.stderr?.on('data', () => {})
 
-for (let i = 0; i < 90; i += 1) {
+for (let i = 0; i < 120; i += 1) {
   await new Promise((r) => setTimeout(r, 500))
   try {
     const res = await fetch(`http://127.0.0.1:${PORT}/pomasa/mas.list`)
@@ -48,12 +67,12 @@ for (let i = 0; i < 90; i += 1) {
       const body = await res.json()
       if (body && body.ok) {
         console.log(`POMASA_STUDIO_E2E_READY http://127.0.0.1:${PORT}`)
-        setInterval(() => {}, 1 << 30) // keep this process alive; killed by Playwright at teardown
+        setInterval(() => {}, 1 << 30)
         break
       }
     }
   } catch { /* not up yet */ }
-  if (i === 89) {
+  if (i === 119) {
     process.exitCode = 1
     console.error('dsh web did not become ready')
   }

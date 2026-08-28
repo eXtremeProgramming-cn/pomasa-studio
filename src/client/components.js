@@ -43,13 +43,14 @@ function psBadge(props, children) {
 }
 
 function psEmpty(props, children) {
+  const kc = k(props, children)
   let title, hint
   if (typeof props === 'string') {
     title = props
-    hint = Array.isArray(children) ? children[0] : children
+    hint = Array.isArray(kc) ? kc[0] : kc
   } else {
     title = props.title
-    hint = props.hint !== undefined ? props.hint : (Array.isArray(children) ? children[0] : children)
+    hint = props.hint !== undefined ? props.hint : (Array.isArray(kc) ? kc[0] : kc)
   }
   return h('div', { className: 'ps-empty' },
     h('div', { className: 'ps-empty-glyph' }, '▫'),

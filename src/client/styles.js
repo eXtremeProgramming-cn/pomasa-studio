@@ -92,8 +92,7 @@ export const CSS = `
 }
 .ps-input:focus, .ps-textarea:focus, .ps-select:focus { border-color: var(--dsw-alias-brand-primary); }
 .ps-textarea { min-height: 90px; resize: vertical; line-height: 1.55; }
-.ps-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 720px) { .ps-form-row { grid-template-columns: 1fr; } }
+.ps-form-row { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 
 /* stage strip */
 .ps-stages { display: flex; gap: 0; overflow-x: auto; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); }

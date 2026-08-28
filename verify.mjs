@@ -393,7 +393,7 @@ test('L2 client bundle: loads and registers conversation.view', () => {
       __ModuleLoader__: {
         load(cfg) {
           loaded.push(cfg.id)
-          const React = { createElement: (type, props, ...kids) => ({ type, props, kids }) }
+          const React = { createElement: (type, props, ...kids) => ({ type, props, kids }), Component: class {} }
           const mod = cfg.factory((name) => {
             if (name === 'react') return React
             throw new Error('unexpected require: ' + name)
@@ -452,7 +452,7 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
     return
   }
   const src = buildClientSource(['api.js', 'md.js', 'components.js', 'pages.js']) +
-    '\nglobalThis.__ps = { MasList, CreateMas, MasDetail, renderMarkdown };'
+    '\nglobalThis.__ps = { MasList, CreateMas, MasDetail, renderMarkdown, psEmpty };'
   const ctx = vm.createContext({ React: react.React, window: {}, URL, setTimeout, clearTimeout })
   vm.runInContext('var h = React.createElement;\n' + src, ctx)
   const ps = ctx.__ps
@@ -478,6 +478,13 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   assert.match(mdHtml, /<pre class="ps-pre">/)
   assert.match(mdHtml, /<table>.*<th>A<\/th>/m)
   assert.match(mdHtml, /<th>B<\/th>/)
+
+  // Regression: psEmpty invoked via createElement without a hint must not
+  // render the empty-object phantom React passes as the 2nd arg (error #31).
+  const emptyHtml = react.SSR.renderToString(react.React.createElement(ps.psEmpty, { title: '空状态' }))
+  assert.match(emptyHtml, /ps-empty-title/)
+  assert.match(emptyHtml, /空状态/)
+  assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(ps.psEmpty, { title: 'x', hint: 'y' })))
 })
 
 await main()

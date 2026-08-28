@@ -104,6 +104,7 @@ export function aggregateUnit(unit, descriptor) {
         id: contract.id,
         title: contract.title,
         shape: contract.shape,
+        indexPath: contract.indexPath,
         index: idx.entries,
         invalid: idx.invalid || false,
       }
