@@ -1,14 +1,23 @@
 /**
  * Install-time MCP provisioning: mount the crawl4ai MCP server into the
- * active DSH profile's cordis.yml so generation/run agents get a first-class
- * web-fetch tool (preferred over LLM default tools per ~/.pomasa/AGENTS.md).
+ * plugin-bearing DSH profiles so generation/run agents get a first-class
+ * web-fetch tool, preferred over LLM default tools per ~/.pomasa/AGENTS.md.
  *
- * Idempotent: an existing `mcp-crawl4ai` entry is left untouched. If the
- * crawl4ai server directory is not found, provisioning is skipped silently.
+ * crawl4ai is provisioned by default. A checked-out copy is used when one is
+ * found (e.g. a dev checkout); otherwise a best-effort shallow clone into
+ * ~/.pomasa/tools/crawl4ai-mcp-server with a venv and requirements install is
+ * attempted once. Any failure skips provisioning silently (agents fall back to
+ * curl / LLM tools per the workspace AGENTS.md).
+ *
+ * Idempotent: an existing `mcp-crawl4ai` entry or an existing local server are
+ * left untouched.
  */
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+
+const GIT_URL = process.env.POMASA_CRAWL4AI_GIT_URL || 'https://github.com/gigix/crawl4ai-mcp-server.git'
 
 function serverDir() {
   if (process.env.POMASA_CRAWL4AI_DIR) return process.env.POMASA_CRAWL4AI_DIR
@@ -17,9 +26,27 @@ function serverDir() {
     path.join(os.homedir(), 'crawl4ai-mcp-server'),
   ]
   for (const c of candidates) {
-    if (fs.existsSync(path.join(c, 'venv', 'bin', 'python')) && fs.existsSync(path.join(c, 'src', 'index.py'))) return c
+    if (isServer(c)) return c
   }
   return null
+}
+
+function isServer(dir) {
+  return fs.existsSync(path.join(dir, 'venv', 'bin', 'python')) && fs.existsSync(path.join(dir, 'src', 'index.py'))
+}
+
+/** Shallow-clone + venv + pip install the server into ~/.pomasa/tools. Best-effort. */
+async function ensureLocalServer(targetDir) {
+  if (isServer(targetDir)) return targetDir
+  try {
+    fs.mkdirSync(path.dirname(targetDir), { recursive: true })
+    execFileSync('git', ['clone', '--depth', '1', GIT_URL, targetDir], { stdio: 'ignore', timeout: 120000 })
+    execFileSync('python3', ['-m', 'venv', path.join(targetDir, 'venv')], { stdio: 'ignore', timeout: 120000 })
+    execFileSync(path.join(targetDir, 'venv', 'bin', 'pip'), ['install', '-r', path.join(targetDir, 'requirements.txt')], { stdio: 'ignore', timeout: 300000 })
+    return isServer(targetDir) ? targetDir : null
+  } catch {
+    return null
+  }
 }
 
 /** Names of profiles that include this plugin (the ones our sessions run in). */
@@ -53,10 +80,12 @@ function readArgvProfile() {
 
 /**
  * Ensure the profile's cordis.yml mounts `mcp-crawl4ai`.
+ * @param profileDir - profile directory to provision.
  * @returns the server dir used, or null when skipped.
  */
-export function provisionCrawl4ai(profileDir) {
-  const dir = serverDir()
+export async function provisionCrawl4ai(profileDir) {
+  let dir = serverDir()
+  if (!dir) dir = await ensureLocalServer(path.join(process.env.POMASA_HOME || path.join(os.homedir(), '.pomasa'), 'tools', 'crawl4ai-mcp-server'))
   if (!dir) return null
   const entry = `- id: mcp-crawl4ai
   name: '@deepseek-ai/dsh-mcp-client'
@@ -82,10 +111,10 @@ export function provisionCrawl4ai(profileDir) {
 }
 
 /** Provision to every profile that includes this plugin. Returns [{profileDir, serverDir|null}]. */
-export function provisionAllMcps(dshHome) {
+export async function provisionAllMcps(dshHome) {
   const out = []
   for (const name of findProfiles(dshHome)) {
-    out.push({ profile: name, server: provisionCrawl4ai(path.join(dshHome, 'profiles', name)) })
+    out.push({ profile: name, server: await provisionCrawl4ai(path.join(dshHome, 'profiles', name)) })
   }
   return out
 }

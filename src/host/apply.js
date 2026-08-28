@@ -8,6 +8,7 @@ import { unitListing, unitState, readArtifact } from './core/state.js'
 import { writeUserInput } from './core/prompt.js'
 import { ensureSkill, generationPrompt, runPrompt } from './core/skill.js'
 import { provisionAllMcps } from './core/mcp-provision.js'
+import { ensurePomasaHome } from './core/pomasa-home.js'
 
 export const name = 'pomasa-studio'
 export const inject = ['webServer', 'agentLoop']
@@ -87,7 +88,7 @@ export function apply(ctx, config = {}) {
   const gens = ensureSkill(config) // materialize the pinned skill snapshot
   ensurePomasaWorkspace().catch(() => {}) // POMASA workspace record + default AGENTS.md (non-blocking)
   const dshHome = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
-  try { provisionAllMcps(dshHome) } catch { /* MCP provisioning is best-effort */ }
+  provisionAllMcps(dshHome).catch(() => {}) // crawl4ai MCP provisioning is best-effort
   const genSessions = new Map() // masId -> { agent, sessionId, startedAt }
   const runSessions = new Map() // `${masId}|${unitKey ?? ''}` -> { agent, sessionId, startedAt }
   const sessionOwner = new Map() // sessionId -> { masId, kind: 'gen' | 'run' }
@@ -100,22 +101,12 @@ export function apply(ctx, config = {}) {
     return `${prefix}-${sessionSeq}-${Date.now()}`
   }
 
-  // One-time default for the POMASA workspace root: an AGENTS.md that steers
-  // generation/run agents toward the configured web tooling and the workspace
-  // conventions (mirrors how the bootstrap workspace provides a default).
-  // The shipped source is the visible file at src/host/core/pomasa-agents.md.
-  function ensurePomasaAgentMd() {
-    const target = path.join(pomasaHome(config), 'AGENTS.md')
-    if (fs.existsSync(target)) return
-    try {
-      const source = fs.readFileSync(new URL('./pomasa-agents.md', import.meta.url), 'utf8')
-      fs.mkdirSync(path.dirname(target), { recursive: true })
-      fs.writeFileSync(target, source, 'utf8')
-    } catch { /* non-fatal */ }
-  }
-
+  // The user-facing ~/.pomasa is provisioned from the pomasa-home/ template
+  // (one visible directory in the repo): copy missing files in, never
+  // overwrite what the user already has. Mirrors how bootstrap workspaces ship
+  // a default shape.
   async function ensurePomasaWorkspace() {
-    ensurePomasaAgentMd()
+    ensurePomasaHome(config)
     await ensureWorkspace(pomasaHome(config), 'POMASA')
   }
 

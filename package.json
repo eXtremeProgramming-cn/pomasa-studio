@@ -13,6 +13,7 @@
     "lib/",
     "src/",
     "skill/",
+    "pomasa-home/",
     "scripts/bundle-client.mjs",
     "cordis.patch.yml",
     "README.md"

@@ -19,6 +19,7 @@ const ROOT = path.dirname(fileURLToPath(import.meta.url))
 const { loadDescriptor, normalizeContract } = await import(path.join(ROOT, 'src/host/core/descriptor.js'))
 const { unitRoots, plannedUnits, unitListing, unitState, readArtifact } = await import(path.join(ROOT, 'src/host/core/state.js'))
 const { buildUserInput } = await import(path.join(ROOT, 'src/host/core/prompt.js'))
+const { ensurePomasaHome, templatePomasaHome } = await import(path.join(ROOT, 'src/host/core/pomasa-home.js'))
 const { apply } = await import(path.join(ROOT, 'src/host/apply.js'))
 
 /* ---------------- mini runner ---------------- */
@@ -297,6 +298,18 @@ async function call(routes, url, method = 'GET', body) {
   await handler(req, res)
   return { code: res.code, json: res.body ? JSON.parse(res.body) : null }
 }
+
+test('L1 pomasa home: template is copied in, but existing files are kept', () => {
+  const home = tempHome()
+  assert.equal(fs.existsSync(templatePomasaHome()), true, 'pomasa-home/ template must exist')
+  // fresh: AGENTS.md provisioned
+  assert.equal(ensurePomasaHome({ pomasaHome: home }), true)
+  assert.ok(fs.existsSync(path.join(home, 'AGENTS.md')))
+  // user file wins: modify, then run again, must not be overwritten
+  fs.writeFileSync(path.join(home, 'AGENTS.md'), '# 我的自定义约定\n', 'utf8')
+  ensurePomasaHome({ pomasaHome: home })
+  assert.equal(fs.readFileSync(path.join(home, 'AGENTS.md'), 'utf8'), '# 我的自定义约定\n')
+})
 
 test('L2 lifecycle: create -> generating -> completed', async () => {
   const home = tempHome()

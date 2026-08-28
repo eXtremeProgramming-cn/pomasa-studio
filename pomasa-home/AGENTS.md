@@ -6,10 +6,11 @@
 - 只允许在自己的 MAS 目录内写文件。生成阶段写到 MAS 根，运行阶段写到 workspace 下的单元根。
 - ~/.pomasa/skills/<version>/ 是只读的生成器 skill 快照。
 
-## 上网工具优先级（有则用，无则依次降级）
-1. 项目配置的抓取工具（crawl4ai、serper 等 MCP）
-2. 直连 curl 抓全文
-3. 兜底才用 LLM 自带 web_search / web_fetch
+## 上网工具
+- crawl4ai（已随 POMASA 安装，工具名为 mcp__crawl4ai__*）：网页全文抓取的首选，抓不到再降级。
+- 其它已配置的抓取工具（serper 等收费服务）：如主动配置了再使用，未配置则忽略。
+- 未配置任何抓取工具时，用 curl 直连抓全文。
+- 兜底才用 LLM 自带 web_search / web_fetch。
 搜索摘要不可信，必须抓原网页全文后再引用（BHV-05）。
 
 ## 输出
