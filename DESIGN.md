@@ -132,15 +132,16 @@
     ├── agents/                   # 蓝图，每个蓝图内含 Artifact 契约声明
     ├── references/               # 参考资料
     ├── units.json                # 可选：运行期枚举出的单元清单
-    ├── run.json                  # 单元根（single 模式）运行记录
-    ├── NN.<stage>/               # single 模式：阶段产物直接铺在 MAS 根
-    └── <unit-key>/               # multi 模式：每个单元一个目录，单元根
-        ├── run.json
-        └── NN.<stage>/
+    └── workspace/
+        ├── <unit-key>/           # multi 模式：单元根，键为国名、日期等
+        │   ├── run.json          # 该单元运行记录（动态状态机）
+        │   ├── events.jsonl      # 可选活动流（非 DSH 运行时兜底）
+        │   └── NN.<stage>/       # 各阶段产物目录，内含 index.json
+        └── (stage 目录直接铺开)   # single 模式：workspace 本身就是单元根
 ```
 
 关键：
-- 单元根即运行沙箱范围。single 模式的单元根就是 MAS 家目录本身，multi 模式是 MAS 根下按单元键建的目录（无额外的 workspace/ 层级）。单元根内才允许运行期写入，这也让 wip/ 之类的 MAS 根文件回到沙箱范围内。
+- run.json 的位置规则统一为"单元根"。single 模式的单元根就是 workspace/，multi 模式是 workspace/\<unit-key\>/。
 - 单元目录自包含。删除一个单元就是删一个目录，备份就是拷一个目录。
 - 不设 output 目录。最终报告就是末阶段的一个普通产物（single-file 契约，如 05.report/final_report.md）。docx / pdf 导出是查看器能力，按需转换，MAS 不产出交付格式文件（Harness 场景仍可用 STR-09 自建导出管线，Studio 不依赖它）。
 
@@ -166,7 +167,7 @@
     "dimensions": ["country"],
     "units": null,
     "units_index": "units.json",
-    "unit_layout": "{country}"
+    "unit_layout": "workspace/{country}"
   },
   "stages": [
     {
@@ -202,7 +203,7 @@
 work 段字段：
 
 - `mode`：`single` 或 `multi`。
-- `dimensions`：单元键的物理意义，如 `["country"]`、`["date"]`。多注重按维嵌套，`["country", "year"]` 对应 `<mas-id>/{country}/{year}/`。
+- `dimensions`：单元键的物理意义，如 `["country"]`、`["date"]`。多注重按维嵌套，`["country", "year"]` 对应 `workspace/{country}/{year}/`。
 - `units`：预声明单元列表（静态已知时），或 `null` 表示运行期枚举。时间轴 multi（如 news-on-china）通常不预声明，run.start 默认键就是当天。
 - `units_index`：运行期枚举结果写出的文件路径（相对 MAS 家目录），由 orchestrator 的枚举阶段（如 country_enum）写入。
 - `unit_layout`：单元目录的 glob 模板，UI 靠它列出单元。
@@ -227,7 +228,7 @@ single 模式的 work 段是最简形：
 | multi-file | 通用回退（若干松散 md） | 阶段 index.json（可选） |
 | single-file | 单个文档（常为交付物） | 阶段 index.json（单条） |
 
-契约的 `path_glob`、`index_path` 相对单元根。UI 按 mode 解析基址：single 对 MAS 家目录，multi 对 MAS 根下对应单元目录。
+契约的 `path_glob`、`index_path` 相对单元根。UI 按 mode 解析基址：single 对 workspace/，multi 对 workspace/\<unit-key\>/。
 
 ### 3.4 阶段实例切片 index.json（动态）
 

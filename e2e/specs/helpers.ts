@@ -1,9 +1,9 @@
 import { test, type Page } from '@playwright/test'
 
 // The sidebar groups sessions by workspace. Opening ANY real session renders
-// the conversation scene bar (incl. our POMASA tab). With pomasa workspaces
-// present, the pomasa workspace's own "New Session" row is a blank staging
-// row — skip it and open a real session instead.
+// the conversation scene bar (incl. our POMASA tab). With the single POMASA
+// workspace present, its own "New Session" row is a blank staging row — skip
+// it and open a real session instead.
 const WORKSPACE_PROBES = ['china-ai-datacenter-governance', 'Projects', 'bootstrap', 'ai4ss-writings']
 
 async function pomasaVisible(page: Page) {

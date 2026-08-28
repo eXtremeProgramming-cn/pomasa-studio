@@ -3,7 +3,7 @@
 本工作区托管所有 POMASA 研究 MAS。每个 MAS 是一个自包含目录（agents/、references/、workspace/、pomasa.json）。
 
 ## 目录边界
-- 只写单元根内的文件（single 的单元根就是 MAS 根，multi 是 MAS 根下的单元目录）；运行期所有写入含运行笔记都在单元根内，单元根之外不写。
+- 只写单元根内的文件（single 的单元根就是 MAS 的 workspace 目录，multi 是 workspace 下的单元目录）；运行期所有写入含运行笔记都在单元根内，单元根之外不写。
 - ~/.pomasa/skills/<version>/ 是只读的生成器 skill 快照。
 
 ## 上网工具

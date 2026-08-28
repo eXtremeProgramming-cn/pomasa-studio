@@ -2,20 +2,17 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { masDir, pomasaHome } from './paths.js'
 
-/** Unit roots for a descriptor. single mode: the MAS home itself is the unit root. */
+/** Unit roots for a descriptor. single mode: the workspace dir itself. */
 export function unitRoots(config, descriptor, masId) {
-  const masRoot = masDir(pomasaHome(config), masId)
+  const workspace = path.join(masDir(pomasaHome(config), masId), 'workspace')
   if (descriptor.work.mode === 'single') {
-    return fs.existsSync(masRoot) ? [{ key: null, root: masRoot }] : []
+    return fs.existsSync(workspace) ? [{ key: null, root: workspace }] : []
   }
-  // multi: unit roots are <mas>/<key>/, uniform with single (runs inside the MAS
-  // home). Known non-unit directories are excluded.
-  const RESERVED_DIRS = new Set(['agents', 'references', 'scripts', 'wip', 'library', 'wiki', 'workspace', 'units', 'output', '_output'])
-  if (!fs.existsSync(masRoot)) return []
+  if (!fs.existsSync(workspace)) return []
   return fs
-    .readdirSync(masRoot, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !RESERVED_DIRS.has(e.name))
-    .map((e) => ({ key: e.name, root: path.join(masRoot, e.name) }))
+    .readdirSync(workspace, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => ({ key: e.name, root: path.join(workspace, e.name) }))
 }
 
 /** Units known ahead (declared or enumerated), even if not yet run. */
@@ -145,9 +142,7 @@ function inferStatus(contracts) {
 
 /** Read an artifact file, refusing any path that escapes the unit root. */
 export function readArtifact(config, masId, unitKey, relPath) {
-  const root = masDir(pomasaHome(config), masId)
-  // single mode: unit root is the MAS home; multi mode: <mas>/<key>
-  const base = path.resolve(unitKey ? path.join(root, unitKey) : root)
+  const base = path.resolve(path.join(masDir(pomasaHome(config), masId), 'workspace', unitKey ?? ''))
   const target = path.resolve(base, relPath)
   if (target !== base && !target.startsWith(base + path.sep)) {
     throw new Error('path escapes unit root')

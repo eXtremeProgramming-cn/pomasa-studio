@@ -112,10 +112,11 @@ export function apply(ctx, config = {}) {
   }
 
   // Sessions group in the DSH sidebar under the workspace whose canonical path
-  // EQUALS their cwd (exact match). Register a workspace record for the MAS
-  // generation dir and each run unit root so our sessions leave "Ungrouped".
-  // Non-fatal: if the registry service is unavailable, grouping simply falls
-  // back to Ungrouped.
+  // EQUALS their cwd (exact match). Every pomasa session shares the ONE
+  // workspace at ~/.pomasa, so only that path carries a workspace record: it is
+  // registered once at startup (ensurePomasaWorkspace) and lazily re-resolved on
+  // attach. Non-fatal: if the registry service is unavailable, grouping simply
+  // falls back to Ungrouped.
   async function ensureWorkspace(cwd, title) {
     let wr
     try { wr = ctx.get('workspaceRegistry') } catch { return null }
@@ -154,9 +155,13 @@ export function apply(ctx, config = {}) {
   // driver instead: resolve the agentDefaultModel selection, create the agent via
   // the agents registry (which composes the session the normal way), and install
   // the model selection into the agent's scope.
-  async function createAgentSession(sessionId, cwd, promptText, title) {
+  async function createAgentSession(sessionId, promptText) {
     const agents = ctx.get('agents')
     if (agents === undefined || typeof agents.create !== 'function') return null
+    // Every pomasa session (create or run, any MAS) belongs to the ONE POMASA
+    // workspace at ~/.pomasa. The session cwd is that workspace; the MAS writes
+    // into its own directories because the prompts carry absolute logical roots.
+    const cwd = home()
     // loader siblings mount concurrently; wait for the complete application
     // before creating an agent (mirrors the headless driver's readiness await)
     try { await ctx.get('loader')?.await?.() } catch { /* loader optional */ }
@@ -187,10 +192,9 @@ export function apply(ctx, config = {}) {
       },
     })
     agent.followup(promptMessage(promptText))
-    // Attach the session to its workspace record so it leaves "Ungrouped".
-    // DSH groups by exact cwd, so the workspace whose path equals this
-    // session's cwd is the one it belongs to.
-    const ws = await ensureWorkspace(cwd, title)
+    // Attach the session to the single POMASA workspace so the sidebar shows
+    // one node holding every pomasa session.
+    const ws = await ensureWorkspace(home(), 'POMASA')
     if (ws && typeof ws.insertSessionBefore === 'function') {
       try { await ws.insertSessionBefore(sessionId) } catch { /* attach is best-effort */ }
     }
@@ -327,7 +331,7 @@ export function apply(ctx, config = {}) {
     }
 
     const sessionId = newSessionId('pomasa-gen')
-    const agent = await createAgentSession(sessionId, root, generationPrompt(gens, id, root), `pomasa · ${id}`)
+    const agent = await createAgentSession(sessionId, generationPrompt(gens, id, root))
     if (!agent) return { ok: true, masId: id, generation: 'external' }
     genSessions.set(id, { agent, sessionId, startedAt: Date.now() })
     sessionOwner.set(sessionId, { masId: id, kind: 'gen' })
@@ -349,7 +353,7 @@ export function apply(ctx, config = {}) {
     for (const { key, root } of targets) {
       fs.mkdirSync(root, { recursive: true })
       const sessionId = newSessionId('pomasa-run')
-      const agent = await createAgentSession(sessionId, root, runPrompt(masDir(home(), masId), root, key), `pomasa · ${masId} · 运行`)
+      const agent = await createAgentSession(sessionId, runPrompt(masDir(home(), masId), root, key))
       if (!agent) return { ok: false, error: 'agent 会话服务不可用（agents.create 未提供）' }
       const runKey = `${masId}|${key || ''}`
       runSessions.set(runKey, { agent, sessionId, startedAt: Date.now() })
@@ -366,15 +370,18 @@ export function apply(ctx, config = {}) {
   function resolveRunTargets(body, descriptor) {
     // The MAS housing directory (registry id) is the identity for paths; the
     // generated descriptor's mas_id field is cosmetic and may differ (e.g. the
-    // generator picked its own id). Single mode runs with the MAS home as unit
-    // root (run cwd = MAS root, sandbox covers the whole home incl. wip/);
-    // multi mode keeps unit dirs under workspace/<key>.
-    const masRoot = masDir(home(), body.masId)
-    if (descriptor.work.mode === 'single') return [{ key: null, root: masRoot }]
+    // generator picked its own id). Unit roots live inside the MAS's workspace
+    // dir — that is the runtime sandbox: single mode uses <mas>/workspace,
+    // multi mode <mas>/workspace/<unit key>. These roots are where the MAS
+    // writes; the DSH session cwd is always the pomasa home, and the run
+    // prompt carries the absolute unit root, so where a MAS writes is
+    // independent of the DSH workspace.
+    const workspace = path.join(masDir(home(), body.masId), 'workspace')
+    if (descriptor.work.mode === 'single') return [{ key: null, root: workspace }]
     const requested = Array.isArray(body.units) ? body.units : null
     const all = unitListing(config, descriptor, body.masId)
     const pick = requested && requested.length ? all.filter((u) => requested.includes(u.key)) : all
-    return pick.map((u) => ({ key: u.key, root: path.join(masRoot, u.key) }))
+    return pick.map((u) => ({ key: u.key, root: path.join(workspace, u.key) }))
   }
 
   async function handleApi(req, res) {
@@ -494,8 +501,13 @@ export function apply(ctx, config = {}) {
           || null
         const log = sid ? await sessionLog(sid) : null
         if (log) return jsonResponse(res, 200, { ok: true, log, events: [] })
-        // fallback: events.jsonl in the unit root
-        const unitRoot = path.join(masDir(home(), masId), 'workspace', unit)
+        // fallback: events.jsonl in the unit root (single: <mas>/workspace, multi: unit dir)
+        const masRoot = masDir(home(), masId)
+        const workspace = path.join(masRoot, 'workspace')
+        const unitRoot = path.resolve(descriptor.work.mode === 'single' ? workspace : path.join(workspace, unit))
+        if (unitRoot !== workspace && !unitRoot.startsWith(workspace + path.sep)) {
+          return jsonResponse(res, 400, { ok: false, error: 'unit path escapes mas workspace' })
+        }
         const events = []
         if (fs.existsSync(path.join(unitRoot, 'events.jsonl'))) {
           const lines = fs.readFileSync(path.join(unitRoot, 'events.jsonl'), 'utf8').trim().split('\n').slice(-100)

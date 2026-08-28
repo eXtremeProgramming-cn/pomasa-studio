@@ -94,12 +94,12 @@ const SINGLE_DESCRIPTOR = {
 
 function writeMas(home, masId, descriptor, { run, files } = {}) {
   const root = path.join(home, masId)
-  fs.mkdirSync(path.join(root, '01.overview'), { recursive: true })
-  fs.mkdirSync(path.join(root, '02.research'), { recursive: true })
+  fs.mkdirSync(path.join(root, 'workspace', '01.overview'), { recursive: true })
+  fs.mkdirSync(path.join(root, 'workspace', '02.research'), { recursive: true })
   fs.writeFileSync(path.join(root, 'pomasa.json'), JSON.stringify(descriptor, null, 2))
-  if (run) fs.writeFileSync(path.join(root, 'run.json'), JSON.stringify(run, null, 2))
+  if (run) fs.writeFileSync(path.join(root, 'workspace', 'run.json'), JSON.stringify(run, null, 2))
   for (const [file, content] of Object.entries(files || {})) {
-    fs.writeFileSync(path.join(root, file), content)
+    fs.writeFileSync(path.join(root, 'workspace', file), content)
   }
 }
 
@@ -175,9 +175,9 @@ test('L1 units: multi mode + declared/enumerated', () => {
     stages: [],
   }
   const root = path.join(home, 'idx')
-  fs.mkdirSync(path.join(root, 'brasil'), { recursive: true })
+  fs.mkdirSync(path.join(root, 'workspace', 'brasil'), { recursive: true })
   fs.writeFileSync(path.join(root, 'pomasa.json'), JSON.stringify(multi))
-  fs.writeFileSync(path.join(root, 'brasil', 'run.json'), JSON.stringify({ status: 'running', stages: [] }))
+  fs.writeFileSync(path.join(root, 'workspace', 'brasil', 'run.json'), JSON.stringify({ status: 'running', stages: [] }))
   fs.writeFileSync(path.join(root, 'units.json'), JSON.stringify(['kenya', 'india']))
   const d = loadDescriptor(path.join(home, 'idx'))
   const listing = unitListing({ pomasaHome: home }, d, 'idx')
@@ -277,8 +277,23 @@ function mockCtx() {
       return { agent }
     },
   }
-  const ctx = { get: (k) => ({ webServer, agentLoop, agents: agentRegistry, agentDefaultModel: { currentSelection: () => ({ provider: 'mock', model: 'mock-model' }) } }[k]) }
-  return { ctx, routes, agents: agentsMap, agentLoop, agentRegistry }
+  const workspaces = new Map() // cwd -> workspace record
+  const workspaceRegistry = {
+    resolveByPath: async (cwd) => workspaces.get(cwd) || null,
+    create: async (cwd) => {
+      const w = {
+        cwd,
+        title: null,
+        sessions: [],
+        setTitle(t) { this.title = t },
+        insertSessionBefore(s) { this.sessions.push(s) },
+      }
+      workspaces.set(cwd, w)
+      return w
+    },
+  }
+  const ctx = { get: (k) => ({ webServer, agentLoop, agents: agentRegistry, agentDefaultModel: { currentSelection: () => ({ provider: 'mock', model: 'mock-model' }) }, workspaceRegistry }[k]) }
+  return { ctx, routes, agents: agentsMap, agentLoop, agentRegistry, workspaces }
 }
 
 function mockRes() {
@@ -326,6 +341,8 @@ test('L2 lifecycle: create -> generating -> completed', async () => {
   assert.equal(genAgent.calls[0][0], 'followup')
   assert.match(genAgent.calls[0][1].content[0].text, /SKILL.md/)
   assert.match(genAgent.calls[0][1].content[0].text, /demo2/)
+  // every session's cwd is the pomasa home — the DSH workspace, not the MAS dir
+  assert.equal(genAgent.meta.cwd, home)
   // user_input.md written, markdown only
   const ui = fs.readFileSync(path.join(home, 'demo2', 'user_input.md'), 'utf8')
   assert.match(ui, /Research Topic/)
@@ -390,7 +407,9 @@ test('L2 lifecycle: run.start spawns sessions, intervene/cancel route', async ()
   assert.ok(runAgent)
   assert.ok(runAgent)
   assert.match(runAgent.calls[0][1].content[0].text, /00\.orchestrator\.md/)
-  assert.match(runAgent.calls[0][1].content[0].text, /run\.json/)
+  assert.match(runAgent.calls[0][1].content[0].text, /workspace/)
+  // run sessions live in the ONE pomasa workspace too
+  assert.equal(runAgent.meta.cwd, home)
 
   const iv = await call(routes, '/pomasa/run.intervene', 'POST', { masId: 'demo', unit: null, message: '再搜一下背景' })
   assert.equal(iv.json.ok, true)
@@ -399,6 +418,23 @@ test('L2 lifecycle: run.start spawns sessions, intervene/cancel route', async ()
   const can = await call(routes, '/pomasa/run.cancel', 'POST', { masId: 'demo', unit: null })
   assert.equal(can.json.ok, true)
   assert.equal(runAgent.calls[2][0], 'cancel')
+})
+
+test('L2 workspaces: one "POMASA" workspace at the pomasa home holds every session', async () => {
+  const home = tempHome()
+  const { ctx, routes, workspaces } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  // generation session (mas.create) + run session (run.start, single mode)
+  await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'wstest', topic: 't' })
+  writeMas(home, 'wstest', SINGLE_DESCRIPTOR)
+  await call(routes, '/pomasa/run.start', 'POST', { masId: 'wstest' })
+  // exactly one workspace, titled POMASA, rooted at the pomasa home — never at a
+  // MAS dir or unit root — and it holds both sessions
+  assert.equal(workspaces.size, 1)
+  const [ws] = [...workspaces.values()]
+  assert.equal(ws.title, 'POMASA')
+  assert.equal(ws.cwd, home)
+  assert.equal(ws.sessions.length, 2)
 })
 
 test('L2 safety: generate requires topic, rejects dup ids', async () => {
