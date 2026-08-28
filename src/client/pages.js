@@ -513,7 +513,12 @@ function logEventBlock(ev, i) {
 }
 
 function SessionLogPanel(props) {
+  const bodyRef = React.useRef(null)
   const count = props.events && props.events.length ? props.events.length : 0
+  React.useEffect(() => {
+    const el = bodyRef.current
+    if (el && props.open) el.scrollTop = el.scrollHeight
+  }, [props.open, count])
   return h('div', { className: 'ps-log-panel', style: props.style },
     h('div', { className: 'ps-log-head', onClick: props.onToggle },
       h('span', { style: { transition: 'transform 150ms', display: 'inline-block', transform: props.open ? 'rotate(90deg)' : 'none' } }, '▶'),
@@ -522,13 +527,19 @@ function SessionLogPanel(props) {
       count ? h('span', { className: 'ps-caption' }, count + ' 条事件') : null,
       props.badge || null,
     ),
-    props.open ? h('div', { className: 'ps-log-body' },
+    props.open ? h('div', { className: 'ps-log-body', ref: bodyRef },
       count ? props.events.map(logEventBlock) : (props.emptyText || '暂无会话记录。'),
     ) : null,
   )
 }
 
 function psLogPanel(props) {
+  const bodyRef = React.useRef(null)
+  const count = props.log && props.log.length ? props.log.length : 0
+  React.useEffect(() => {
+    const el = bodyRef.current
+    if (el && props.logOpen) el.scrollTop = el.scrollHeight
+  }, [props.logOpen, count])
   return h('div', { className: 'ps-log-panel', style: { marginTop: 16 } },
     h('div', { className: 'ps-log-head', onClick: props.toggleLog },
       h('span', { style: { transition: 'transform 150ms', display: 'inline-block', transform: props.logOpen ? 'rotate(90deg)' : 'none' } }, '▶'),
@@ -536,7 +547,7 @@ function psLogPanel(props) {
       h('span', { className: 'spacer', style: { flex: 1 } }),
       props.runStatus === 'running' || props.runStatus === 'queued' ? psBadge('running', '运行中') : null,
     ),
-    props.logOpen ? h('div', { className: 'ps-log-body' },
+    props.logOpen ? h('div', { className: 'ps-log-body', ref: bodyRef },
       props.log && props.log.length ? props.log.map(logEventBlock) :
         '暂无事件（MAS 未写 events.jsonl 或尚未运行）。',
       h('div', { className: 'ps-field', style: { marginBottom: 0 } },
