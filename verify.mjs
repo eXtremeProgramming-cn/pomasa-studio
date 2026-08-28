@@ -472,7 +472,7 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
     return
   }
   const src = buildClientSource(['api.js', 'md.js', 'components.js', 'pages.js']) +
-    '\nglobalThis.__ps = { MasList, CreateMas, MasDetail, renderMarkdown, psEmpty };'
+    '\nglobalThis.__ps = { MasList, CreateMas, MasDetail, renderMarkdown, psEmpty, stageContractCards };'
   const ctx = vm.createContext({ React: react.React, window: {}, URL, setTimeout, clearTimeout })
   vm.runInContext('var h = React.createElement;\n' + src, ctx)
   const ps = ctx.__ps
@@ -505,6 +505,21 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   assert.match(emptyHtml, /ps-empty-title/)
   assert.match(emptyHtml, /空状态/)
   assert.doesNotThrow(() => react.SSR.renderToString(react.React.createElement(ps.psEmpty, { title: 'x', hint: 'y' })))
+
+  // Regression: two contracts sharing one index.json must not duplicate entries
+  const shared = {
+    status: 'completed',
+    contracts: [
+      { id: 'scan_overview', title: '概览', shape: 'single-file', indexPath: '01.scan/index.json', index: [{ id: 'scan_overview', title: 'POMASA 初始概览', file: '01.scan/overview.md' }] },
+      { id: 'question_list', title: '问题清单', shape: 'single-file', indexPath: '01.scan/index.json', index: [{ id: 'question_list', title: '问题清单', file: '01.scan/question_list.md' }] },
+    ],
+  }
+  const dupHtml = react.SSR.renderToString(react.React.createElement('div', { key: 'd' },
+    ps.stageContractCards({ status: 'completed', contracts: shared.contracts }, null, {}, () => {}),
+  ))
+  assert.equal((dupHtml.match(/<div class="ps-art-title">POMASA 初始概览<\/div>/g) || []).length, 1)
+  assert.equal((dupHtml.match(/<div class="ps-art-title">问题清单<\/div>/g) || []).length, 1)
+  assert.equal((dupHtml.match(/class="ps-card ps-art"/g) || []).length, 2)
 })
 
 test('L2 lifecycle: mas.delete removes dir, registry, and active sessions', async () => {

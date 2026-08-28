@@ -384,12 +384,24 @@ function stageContractCards(stage, unit, api, openArtifact, artifact) {
     return h(psEmpty, { title: '该阶段无产物契约', hint: str(stage.title) + ' 不产出可见产物（如枚举或编排阶段）。' })
   }
   const all = []
+  const seen = new Set()
   for (const c of stage.contracts) {
     const entries = Array.isArray(c.index) ? c.index : []
     for (const e of entries || []) {
-      if (e && typeof e === 'object') {
-        all.push({ contract: c.id, contractTitle: c.title, entry: e, path: resolveArtifactPath(c, e) })
-      }
+      if (!e || typeof e !== 'object') continue
+      // Several contracts may share one index.json (the generator emits both a
+      // summary and a questions contract over the same file); dedupe entries so
+      // each artifact renders exactly once.
+      const key = String(c.indexPath || '') + '|' + String(e.id || e.file || e.path || JSON.stringify(e))
+      if (seen.has(key)) continue
+      seen.add(key)
+      // Attribute an entry to the contract whose artifact id matches its id
+      // when one exists; otherwise to the contract that listed it first.
+      const matched = e.id != null
+        ? stage.contracts.find((x) => x.id != null && String(x.id) === String(e.id))
+        : undefined
+      const owner = matched || c
+      all.push({ contract: owner.id, contractTitle: owner.title, entry: e, path: resolveArtifactPath(owner, e) })
     }
   }
   if (stage.status !== 'completed' && !all.length) {
