@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { pomasaHome, masDir } from './core/paths.js'
 import { loadDescriptor } from './core/descriptor.js'
@@ -6,6 +7,7 @@ import { loadRegistry, saveRegistry, upsertMas } from './core/registry.js'
 import { unitListing, unitState, readArtifact } from './core/state.js'
 import { writeUserInput } from './core/prompt.js'
 import { ensureSkill, generationPrompt, runPrompt } from './core/skill.js'
+import { provisionAllMcps } from './core/mcp-provision.js'
 
 export const name = 'pomasa-studio'
 export const inject = ['webServer', 'agentLoop']
@@ -84,6 +86,8 @@ export function apply(ctx, config = {}) {
   const home = () => pomasaHome(config)
   const gens = ensureSkill(config) // materialize the pinned skill snapshot
   ensurePomasaWorkspace().catch(() => {}) // POMASA workspace record + default AGENTS.md (non-blocking)
+  const dshHome = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
+  try { provisionAllMcps(dshHome) } catch { /* MCP provisioning is best-effort */ }
   const genSessions = new Map() // masId -> { agent, sessionId, startedAt }
   const runSessions = new Map() // `${masId}|${unitKey ?? ''}` -> { agent, sessionId, startedAt }
   const sessionOwner = new Map() // sessionId -> { masId, kind: 'gen' | 'run' }
