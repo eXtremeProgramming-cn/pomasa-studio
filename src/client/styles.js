@@ -144,7 +144,7 @@ export const CSS = `
 .ps-log-panel { border: 1px solid var(--dsw-alias-border-l2); border-radius: 14px; background: var(--dsw-alias-bg-layer-1); overflow: hidden; }
 .ps-log-head { display: flex; align-items: center; gap: 10px; padding: 12px 18px; cursor: pointer; user-select: none; }
 .ps-log-head:hover { background: var(--dsw-alias-interactive-bg-hover); }
-.ps-log-body { border-top: 1px solid var(--dsw-alias-border-l2); padding: 14px 18px; max-height: 380px; overflow: auto; background: var(--dsw-alias-bg-layer-2); font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+.ps-log-body { border-top: 1px solid var(--dsw-alias-border-l2); padding: 14px 18px; max-height: 260px; overflow: auto; background: var(--dsw-alias-bg-layer-2); font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
 
 .ps-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
 .ps-toolbar .spacer { flex: 1; }

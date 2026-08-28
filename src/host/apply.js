@@ -322,10 +322,13 @@ export function apply(ctx, config = {}) {
   }
 
   function resolveRunTargets(body, descriptor) {
-    const workspace = path.join(masDir(home(), descriptor.id), 'workspace')
+    // The MAS housing directory (registry id) is the identity for paths; the
+    // generated descriptor's mas_id field is cosmetic and may differ (e.g. the
+    // generator picked its own id). Always resolve against the registered id.
+    const workspace = path.join(masDir(home(), body.masId), 'workspace')
     if (descriptor.work.mode === 'single') return [{ key: null, root: workspace }]
     const requested = Array.isArray(body.units) ? body.units : null
-    const all = unitListing(config, descriptor, descriptor.id)
+    const all = unitListing(config, descriptor, body.masId)
     const pick = requested && requested.length ? all.filter((u) => requested.includes(u.key)) : all
     return pick.map((u) => ({ key: u.key, root: path.join(workspace, u.key) }))
   }

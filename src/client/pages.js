@@ -399,10 +399,11 @@ function MasDetail(props) {
                 h('span', null, '触发：' + str(run.trigger || '—') + (run.runtime ? ' · 运行时 ' + str(run.runtime) : '')),
               ),
             ) : null,
-            h(psLogPanel, { logOpen, log, toggleLog, onIntervene: sendIntervene, intervene, setIntervene, runStatus }),
           ),
       ),
     ),
+
+    h(psLogPanel, { logOpen, log, toggleLog, onIntervene: sendIntervene, intervene, setIntervene, runStatus }),
   )
 }
 
