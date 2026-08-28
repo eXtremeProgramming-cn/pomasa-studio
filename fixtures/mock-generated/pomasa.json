@@ -1,0 +1,19 @@
+{
+  "schema_version": "obv-1",
+  "mas_id": "PLACEHOLDER_MAS_ID",
+  "name": "MOCK_MAS_NAME",
+  "description": "Mock generated MAS for E2E",
+  "created_at": 1758000000000,
+  "work": { "mode": "single" },
+  "stages": [
+    { "index": 1, "id": "overview", "title": "Overview", "agent_file": "agents/01.overview_researcher.md", "kind": "stage",
+      "contracts": [{ "artifact": "overview", "title": "Overview", "shape": "single-file", "format": "markdown",
+        "path_glob": "01.overview/overview.md", "index_path": "01.overview/index.json", "schema": ["id","title","summary","file"] }] },
+    { "index": 2, "id": "research", "title": "Research", "agent_file": "agents/02.deep_researcher.md", "kind": "stage",
+      "contracts": [{ "artifact": "findings", "title": "Findings", "shape": "vertical-list", "format": "markdown",
+        "path_glob": "02.research/*.md", "index_path": "02.research/index.json", "schema": ["id","title","summary","file"] }] },
+    { "index": 3, "id": "report", "title": "Report", "agent_file": "agents/03.reporter.md", "kind": "stage",
+      "contracts": [{ "artifact": "final_report", "title": "Final Report", "shape": "single-file", "format": "markdown",
+        "path_glob": "03.report/final_report.md", "index_path": "03.report/index.json", "schema": ["id","title","summary","file"] }] }
+  ]
+}

@@ -23,6 +23,7 @@ const ROUTES = [
   'run.intervene',
   'run.cancel',
   'run.log',
+  'generation.log',
 ]
 const GEN_PREFIX = 'pomasa-gen-'
 
@@ -85,6 +86,23 @@ export function apply(ctx, config = {}) {
     })
   }
 
+  // Read a DSH session's transcript (messages, tool calls, thinking) from the
+  // session persistence backend. Returns null when unavailable.
+  async function sessionLog(sessionId) {
+    if (!sessionId) return null
+    let persistence
+    try {
+      persistence = ctx.get?.('sessionPersistence')
+    } catch { /* context may not expose it */ }
+    if (!persistence || typeof persistence.inspect !== 'function') return null
+    try {
+      const inspected = await persistence.inspect(sessionId)
+      return { sessionId, meta: inspected.meta, events: inspected.events || [] }
+    } catch {
+      return null
+    }
+  }
+
   function masSummary(m) {
     const live = dispatch(m.id)
     const status =
@@ -139,9 +157,34 @@ export function apply(ctx, config = {}) {
       return { ok: true, masId: id, generation: 'external' }
     }
 
+    if (config.fastGeneration === true || process.env.POMASA_TEST_FAST_GENERATION === '1') {
+      // Test-only mock generation: no LLM call. Streams a few fake session
+      // events, then copies a prebuilt MAS skeleton into the root (which flips
+      // generation.status to completed). Exercises the full UI/host flow
+      // deterministically and fast.
+      const fakeSessionId = `pomasa-gen-${id}`
+      const events = []
+      const push = (type, data) => events.push({ type, seq: events.length + 1, time: Date.now(), data })
+      push('message', { role: 'assistant', content: '开始生成 MAS：读取 POMASA skill 与模式目录（mock）。' })
+      push('tool', { name: 'read', arguments: JSON.stringify({ file: 'SKILL.md' }) })
+      push('tool', { name: 'read', arguments: JSON.stringify({ file: 'pattern-catalog/README.md' }) })
+      setTimeout(() => {
+        const srcRoot = path.resolve(new URL('../../fixtures/mock-generated', import.meta.url).pathname)
+        fs.cpSync(srcRoot, root, { recursive: true })
+        const pj = path.join(root, 'pomasa.json')
+        let txt = fs.readFileSync(pj, 'utf8')
+        txt = txt.split('PLACEHOLDER_MAS_ID').join(id).split('MOCK_MAS_NAME').join(body.name || id)
+        fs.writeFileSync(pj, txt)
+        push('tool', { name: 'write', arguments: JSON.stringify({ file: 'agents/00.orchestrator.md' }) })
+        push('message', { role: 'assistant', content: 'MAS 骨架生成完成（mock）：pomasa.json 已写入。' })
+      }, 3000)
+      genSessions.set(id, { agent: null, sessionId: fakeSessionId, fast: true, events, startedAt: Date.now() })
+      return { ok: true, masId: id, generation: 'session' }
+    }
+
     const sessionId = `pomasa-gen-${id}`
     const agent = agentLoop.create(sessionId, {}, { cwd: root })
-    genSessions.set(id, { agent, startedAt: Date.now() })
+    genSessions.set(id, { agent, sessionId, startedAt: Date.now() })
     agent.followup({ role: 'user', content: generationPrompt(gens, id, root) })
     return { ok: true, masId: id, generation: 'session' }
   }
@@ -160,7 +203,7 @@ export function apply(ctx, config = {}) {
       fs.mkdirSync(root, { recursive: true })
       const sessionId = `pomasa-run-${masId}-${key || 'single'}`
       const agent = agentLoop.create(sessionId, {}, { cwd: root })
-      runSessions.set(`${masId}|${key || ''}`, { agent, startedAt: Date.now() })
+      runSessions.set(`${masId}|${key || ''}`, { agent, sessionId, startedAt: Date.now() })
       agent.followup({ role: 'user', content: runPrompt(masDir(home(), masId), root, key) })
       launched.push(key)
     }
@@ -243,9 +286,15 @@ export function apply(ctx, config = {}) {
         const masId = q.masId
         if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
         const descriptor = loadDescriptor(masDir(home(), masId))
-        if (!descriptor) return jsonResponse(res, 200, { ok: true, events: [] })
-        const unit = descriptor.work.mode === 'single' ? null : q.unit
-        const unitRoot = path.join(masDir(home(), masId), 'workspace', unit ?? '')
+        if (!descriptor) return jsonResponse(res, 200, { ok: true, log: null, events: [] })
+        const unit = descriptor.work.mode === 'single' ? '' : (q.unit || '')
+        const runKey = `${masId}|${unit}`
+        const sid = (runSessions.get(runKey) && runSessions.get(runKey).sessionId)
+          || (unit ? `pomasa-run-${masId}-${unit}` : `pomasa-run-${masId}-single`)
+        const log = await sessionLog(sid)
+        if (log) return jsonResponse(res, 200, { ok: true, log, events: [] })
+        // fallback: events.jsonl in the unit root
+        const unitRoot = path.join(masDir(home(), masId), 'workspace', unit)
         const events = []
         if (fs.existsSync(path.join(unitRoot, 'events.jsonl'))) {
           const lines = fs.readFileSync(path.join(unitRoot, 'events.jsonl'), 'utf8').trim().split('\n').slice(-100)
@@ -257,7 +306,17 @@ export function apply(ctx, config = {}) {
             }
           }
         }
-        return jsonResponse(res, 200, { ok: true, events })
+        return jsonResponse(res, 200, { ok: true, log: null, events })
+      }
+
+      if (sub === '/generation.log' && req.method === 'GET') {
+        const masId = q.masId
+        if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
+        const live = genSessions.get(masId)
+        if (live && live.fast) return jsonResponse(res, 200, { ok: true, log: { sessionId: live.sessionId, events: live.events || [] } })
+        const sid = (live && live.sessionId) || `pomasa-gen-${masId}`
+        const log = await sessionLog(sid)
+        return jsonResponse(res, 200, { ok: true, log })
       }
 
       // ---- writes ----

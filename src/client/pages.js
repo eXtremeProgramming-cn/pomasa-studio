@@ -165,6 +165,8 @@ function MasDetail(props) {
   const [artifact, setArtifact] = React.useState(null)
   const [viewer, setViewer] = React.useState(null)
   const [genStatus, setGenStatus] = React.useState(null)
+  const [genLogOpen, setGenLogOpen] = React.useState(false)
+  const [genEvents, setGenEvents] = React.useState([])
   const [logOpen, setLogOpen] = React.useState(false)
   const [log, setLog] = React.useState([])
   const [intervene, setIntervene] = React.useState('')
@@ -200,6 +202,22 @@ function MasDetail(props) {
     const t = setInterval(refresh, 3000)
     return () => clearInterval(t)
   }, [refresh])
+
+  // generation transcript poll while the log panel is open
+  React.useEffect(() => {
+    if (!(generated === false) || !genLogOpen) return
+    let stop = false
+    const poll = async () => {
+      if (stop) return
+      try {
+        const r = await api.generationLog(masId)
+        if (r.ok && r.log) setGenEvents(r.log.events || [])
+      } catch { /* transient */ }
+    }
+    poll()
+    const t = setInterval(poll, 2000)
+    return () => { stop = true; clearInterval(t) }
+  }, [generated, genLogOpen, masId, api])
 
   const openArtifact = async (artifactPath, entry) => {
     setArtifact({ path: artifactPath, entry })
@@ -240,7 +258,7 @@ function MasDetail(props) {
     const open = !logOpen
     setLogOpen(open)
     if (open) {
-      try { const r = await api.runLog(masId, unit); if (r.ok) setLog(r.events || []) } catch (e) { /* ignore */ }
+      try { const r = await api.runLog(masId, unit); if (r.ok) setLog(((r.log && r.log.events) || r.events) || []) } catch (e) { /* ignore */ }
     }
   }
 
@@ -271,6 +289,14 @@ function MasDetail(props) {
             ? '生成器会话正在按 POMASA 模式构造系统。完成后自动进入详情；可在桌面会话区看到生成进度。'
             : '未检测到生成会话，生成服务可能不可用或会话已失败。'),
         h('div', { className: 'ps-caption', style: { marginTop: 10 } }, 'generation.status = ' + str(gs)),
+        h(SessionLogPanel, {
+          title: '生成会话（消息 / 工具调用 / 思考过程）',
+          open: genLogOpen,
+          onToggle: () => setGenLogOpen((v) => !v),
+          events: genEvents,
+          badge: stillWorking ? psBadge('running', '生成中') : null,
+          emptyText: '暂无会话记录。待生成会话开始后这里会实时滚动消息与思考过程。',
+        }),
       ),
     )
   }
@@ -447,6 +473,48 @@ function prettyJson(content) {
   try { return JSON.stringify(JSON.parse(content), null, 2) } catch (e) { return content }
 }
 
+// Render one DSH session event (message / tool call / thinking) as readable text.
+function extractLogText(ev) {
+  const d = ev && ev.data
+  if (!d) return '[empty]'
+  if (typeof d.content === 'string' && d.content) return d.content
+  if (typeof d.text === 'string' && d.text) return (d.role ? d.role + ': ' : '') + d.text
+  if (d.role) return (typeof d.content === 'string' && d.content ? d.role + ': ' + d.content : d.role)
+  if (typeof d.name === 'string') {
+    const args = typeof d.arguments === 'string' ? d.arguments : (d.arguments ? JSON.stringify(d.arguments) : '')
+    return '[' + d.name + ']' + (args ? ' ' + args : '')
+  }
+  try {
+    const j = JSON.stringify(d)
+    return !j ? '[event]' : (j.length > 400 ? j.slice(0, 400) + '…' : j)
+  } catch { return String(d) }
+}
+
+function logEventBlock(ev, i) {
+  const type = (ev && ev.type) || 'event'
+  return h('div', { key: i, style: { marginBottom: 10 } },
+    h('div', { style: { color: 'var(--dsw-alias-label-caption)', fontSize: 11.5, marginBottom: 2 } },
+      type + (ev && ev.time ? ' · ' + fmtTime(ev.time) : '')),
+    h('div', { style: { whiteSpace: 'pre-wrap', wordBreak: 'break-word' } }, extractLogText(ev)),
+  )
+}
+
+function SessionLogPanel(props) {
+  const count = props.events && props.events.length ? props.events.length : 0
+  return h('div', { className: 'ps-log-panel', style: props.style },
+    h('div', { className: 'ps-log-head', onClick: props.onToggle },
+      h('span', { style: { transition: 'transform 150ms', display: 'inline-block', transform: props.open ? 'rotate(90deg)' : 'none' } }, '▶'),
+      h('span', { style: { fontWeight: 600, fontSize: 15 } }, props.title || '会话日志'),
+      h('span', { className: 'spacer', style: { flex: 1 } }),
+      count ? h('span', { className: 'ps-caption' }, count + ' 条事件') : null,
+      props.badge || null,
+    ),
+    props.open ? h('div', { className: 'ps-log-body' },
+      count ? props.events.map(logEventBlock) : (props.emptyText || '暂无会话记录。'),
+    ) : null,
+  )
+}
+
 function psLogPanel(props) {
   return h('div', { className: 'ps-log-panel', style: { marginTop: 16 } },
     h('div', { className: 'ps-log-head', onClick: props.toggleLog },
@@ -456,7 +524,7 @@ function psLogPanel(props) {
       props.runStatus === 'running' || props.runStatus === 'queued' ? psBadge('running', '运行中') : null,
     ),
     props.logOpen ? h('div', { className: 'ps-log-body' },
-      props.log && props.log.length ? props.log.map((e, i) => h('div', { key: i }, str(e))) :
+      props.log && props.log.length ? props.log.map(logEventBlock) :
         '暂无事件（MAS 未写 events.jsonl 或尚未运行）。',
       h('div', { className: 'ps-field', style: { marginBottom: 0 } },
         h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },

@@ -20,6 +20,7 @@ function createApi() {
     unitState: (masId, unit) => request('/pomasa/unit.state' + q({ masId, unit: unit || '' })),
     artifact: (masId, unit, path) => request('/pomasa/artifact.read' + q({ masId, unit: unit || '', path })),
     runLog: (masId, unit) => request('/pomasa/run.log' + q({ masId, unit: unit || '' })),
+    generationLog: (masId) => request('/pomasa/generation.log' + q({ masId })),
     createMas: (fields) => request('/pomasa/mas.create', { method: 'POST', body: JSON.stringify(fields) }),
     startRun: (masId, units) => request('/pomasa/run.start', { method: 'POST', body: JSON.stringify({ masId, units }) }),
     intervene: (masId, unit, message) => request('/pomasa/run.intervene', { method: 'POST', body: JSON.stringify({ masId, unit: unit || null, message }) }),

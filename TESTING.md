@@ -123,7 +123,11 @@ e2e/
 POMASA_E2E_SRC_HOME=user npx playwright test --config=e2e/playwright.config.ts studio
 ```
 
-**L4b live 的运行条件**：需要真实 LLM provider 的 API key 出现在运行环境（`MAKU_BAILIAN_API_KEY`），否则生成会话无法鉴权、静默空转。spec 已按该环境变量门控，未设置则跳过。真实生成耗时以分钟计。
+**L4b 生成流（mock 模型）**：E2E 不调用真实 LLM。servers.mjs 设置 `POMASA_TEST_FAST_GENERATION=1`，插件的 mas.create 走快速 mock 路径：流式返回假会话事件（消息/工具调用/思考），约 3 秒后把预置的 `fixtures/mock-generated` 骨架复制进 MAS 目录使 pomasa.json 出现。UI 全链路（生成中实时状态 → 生成日志面板流式渲染 → 完成自动进详情）确定性验证，秒级完成。真实 LLM 路径不变，由独立生成的端到端测试与桌面手动检查覆盖。
+
+```bash
+POMASA_E2E_SRC_HOME=user npx playwright test --config=e2e/playwright.config.ts
+```
 
 已知不稳定性：会话打开依赖 DSH UI 加载时序，偶发 skip；重跑即可。
 

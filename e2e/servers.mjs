@@ -34,7 +34,12 @@ process.on('SIGINT', () => { cleanup(); process.exit(0) })
 
 fs.cpSync(SEED, pomasaHome, { recursive: true })
 
-let env = Object.assign({}, process.env, { DSH_HOME: dshHome, POMASA_HOME: pomasaHome })
+let env = Object.assign({}, process.env, {
+  DSH_HOME: dshHome,
+  POMASA_HOME: pomasaHome,
+  // E2E never calls a real LLM: generation is mocked (fast, deterministic).
+  POMASA_TEST_FAST_GENERATION: '1',
+})
 
 if (process.env.POMASA_E2E_SRC_HOME === 'user') {
   // Copy the user's sessions + model settings (not profiles, whose node_modules
