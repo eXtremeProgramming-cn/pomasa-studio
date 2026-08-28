@@ -78,7 +78,12 @@ function readIndex(unit, contract) {
   } catch {
     return { entries: null, invalid: true, file }
   }
-  const list = Array.isArray(raw) ? raw : (raw.entries ?? raw.items ?? raw.versions ?? raw.files ?? [])
+  // Accept the canonical bare array, the wrapped { version, entries } form,
+  // and the run-time envelope variants agents may produce (items/versions/
+  // files/artifacts/list).
+  const list = Array.isArray(raw)
+    ? raw
+    : (raw.entries ?? raw.items ?? raw.versions ?? raw.files ?? raw.artifacts ?? raw.list)
   return { entries: Array.isArray(list) ? list : null }
 }
 

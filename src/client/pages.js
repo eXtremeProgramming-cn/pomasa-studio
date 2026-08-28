@@ -178,7 +178,6 @@ function MasDetail(props) {
   const [artifact, setArtifact] = React.useState(null)
   const [viewer, setViewer] = React.useState(null)
   const [genStatus, setGenStatus] = React.useState(null)
-  const [intervene, setIntervene] = React.useState('')
   const [busy, setBusy] = React.useState(false)
   const [notice, setNotice] = React.useState(null)
 
@@ -239,14 +238,6 @@ function MasDetail(props) {
     finally { setBusy(false) }
   }
 
-  const sendIntervene = async () => {
-    const msg = intervene.trim()
-    if (!msg) return
-    setIntervene('')
-    try { await api.intervene(masId, unit, msg); setNotice({ kind: 'ok', text: '已注入运行会话' }) }
-    catch (e) { setNotice({ kind: 'err', text: String(e && e.message || e) }) }
-  }
-
   const downloadMd = () => {
     if (!viewer) return
     const blob = new Blob([String(viewer.content)], { type: 'text/markdown;charset=utf-8' })
@@ -304,8 +295,18 @@ function MasDetail(props) {
       ),
       h('div', { className: 'spacer' }),
       runStatus === 'running' || runStatus === 'queued' ?
-        h(psBtn, { ghost: true, onClick: () => api.cancelRun(masId, unit).then(() => refresh()) }, '取消运行') : null,
-      h(psBtn, { primary: true, disabled: busy, onClick: () => startRun(Array.isArray(units) ? units.filter((u) => !u.run).map((u) => u.key) : []) }, '运行'),
+        h(psBtn, {
+          className: 'ps-btn-danger',
+          style: { borderColor: 'var(--dsw-alias-state-error-primary)', color: 'var(--dsw-alias-state-error-primary)' },
+          onClick: () => {
+            if (window.confirm('确定要取消当前运行会话吗？已产生的产物会保留。')) {
+              api.cancelRun(masId, unit).then(() => refresh())
+            }
+          },
+        }, '取消运行') : null,
+      runStatus === 'running' || runStatus === 'queued'
+        ? h(psBtn, { disabled: true }, '运行中…')
+        : h(psBtn, { primary: true, disabled: busy, onClick: () => startRun(Array.isArray(units) ? units.filter((u) => !u.run).map((u) => u.key) : []) }, '运行'),
     ),
 
     notice ? h('div', { className: 'ps-notice ' + notice.kind }, str(notice.text)) : null,
@@ -333,55 +334,26 @@ function MasDetail(props) {
     ),
 
     h('div', { className: 'ps-panel' },
-      h('div', null,
-        stage ? h('div', { key: 'stage-' + str(stageIdx) },
-          stageContractCards(stage, unit, api, openArtifact, artifact),
-        ) : h(psEmpty, { title: '选择阶段' }),
-      ),
-      h('div', null,
-        viewer ? h('div', { className: 'ps-viewer' },
-          h('div', { className: 'ps-viewer-head' },
-            h(psBtn, { ghost: true, onClick: () => { setArtifact(null); setViewer(null) } }, '✕'),
-            h('span', { style: { flex: 1, fontWeight: 600, fontSize: 15 } }, str(viewer.path)),
-            h('span', { className: 'ps-muted' }, str(viewer.format)),
-            h(psBtn, { ghost: true, onClick: downloadMd }, '下载 Markdown'),
-            h(psBtn, { ghost: true, disabled: true, title: 'docx / pdf 导出即将支持' }, '导出 docx/pdf'),
-          ),
-          h('div', { className: 'ps-viewer-body' },
-            viewer.format === 'json'
-              ? h('pre', { className: 'ps-pre' }, prettyJson(String(viewer.content || '')))
-              : viewer.format === 'markdown'
-                ? renderMarkdown(String(viewer.content || ''))
-                : h('pre', { className: 'ps-pre' }, String(viewer.content || '')),
-          ),
-        ) :
-          h('div', { className: 'ps-run-info' },
-            run ? h(psCard, null,
-              h('div', { className: 'ps-card-title', style: { marginBottom: 8 } }, '运行信息'),
-              h('div', { className: 'ps-muted', style: { display: 'grid', gap: 4 } },
-                h('span', null, '单元：' + str(run.unit || 'single')),
-                h('span', null, '状态：' + str(runStatus)),
-                h('span', null, '启动：' + fmtTime(run.created_at || run.started_at)),
-                h('span', null, '结束：' + fmtTime(run.finished_at)),
-                h('span', null, '触发：' + str(run.trigger || '—') + (run.runtime ? ' · 运行时 ' + str(run.runtime) : '')),
-              ),
-            ) : null,
-          ),
-      ),
-    ),
+      stage ? h('div', { key: 'stage-' + str(stageIdx) },
+        stageContractCards(stage, unit, api, openArtifact, artifact),
+      ) : h(psEmpty, { title: '选择阶段' }),
 
-    h(psCard, { style: { marginTop: 20 } },
-      h('div', { className: 'ps-card-title', style: { marginBottom: 10 } }, '运行'),
-      h('div', { className: 'ps-muted', style: { marginBottom: 12 } },
-        runStatus === 'running' || runStatus === 'queued'
-          ? '运行会话进行中，状态与产物由下方各阶段实时反映。'
-          : '该单元当前无正在进行的运行会话。',
-        h('span', { className: 'ps-caption', style: { marginLeft: 8 } }, '完整对话与轨迹请到 DSH 侧栏打开会话用"对话 / 轨迹"查看。'),
-      ),
-      h('div', { style: { display: 'flex', gap: 8 } },
-        h(psInput, { value: intervene, onChange: (e) => setIntervene(e.target.value), placeholder: '向当前运行会话注入指令…', disabled: runStatus !== 'running' && runStatus !== 'queued', onKeyDown: (e) => { if (e.key === 'Enter') sendIntervene() } }),
-        h(psBtn, { primary: true, onClick: sendIntervene, disabled: !intervene.trim() || (runStatus !== 'running' && runStatus !== 'queued') }, '注入'),
-      ),
+      viewer ? h('div', { className: 'ps-viewer', style: { marginTop: 20 } },
+        h('div', { className: 'ps-viewer-head' },
+          h(psBtn, { ghost: true, onClick: () => { setArtifact(null); setViewer(null) } }, '✕'),
+          h('span', { style: { flex: 1, fontWeight: 600, fontSize: 15 } }, str(viewer.path)),
+          h('span', { className: 'ps-muted' }, str(viewer.format)),
+          h(psBtn, { ghost: true, onClick: downloadMd }, '下载 Markdown'),
+          h(psBtn, { ghost: true, disabled: true, title: 'docx / pdf 导出即将支持' }, '导出 docx/pdf'),
+        ),
+        h('div', { className: 'ps-viewer-body' },
+          viewer.format === 'json'
+            ? h('pre', { className: 'ps-pre' }, prettyJson(String(viewer.content || '')))
+            : viewer.format === 'markdown'
+              ? renderMarkdown(String(viewer.content || ''))
+              : h('pre', { className: 'ps-pre' }, String(viewer.content || '')),
+        ),
+      ) : null,
     ),
   )
 }
@@ -447,12 +419,15 @@ function stageContractCards(stage, unit, api, openArtifact, artifact) {
 }
 
 // OBV-01: an index entry's `file` resolves relative to the index.json's own
-// directory, not the unit root. Compose the unit-root-relative path here.
+// directory. Some agents write workspace-relative paths instead (already
+// prefixed with the stage dir). Compose the unit-root-relative path, keeping
+// an already-prefixed path as-is.
 function resolveArtifactPath(contract, entry) {
   const seg = str((entry && (entry.file || entry.path)) || '')
   if (!contract || !contract.indexPath || !seg) return seg
   const dir = String(contract.indexPath).split('/').slice(0, -1).join('/')
-  return (dir ? dir + '/' : '') + seg
+  if (!dir) return seg
+  return seg.startsWith(dir + '/') ? seg : dir + '/' + seg
 }
 
 function fmtSize(n) {
