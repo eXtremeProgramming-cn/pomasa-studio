@@ -19,7 +19,7 @@ function createApi() {
     unitList: (masId) => request('/pomasa/unit.list' + q({ masId })),
     unitState: (masId, unit) => request('/pomasa/unit.state' + q({ masId, unit: unit || '' })),
     artifact: (masId, unit, path) => request('/pomasa/artifact.read' + q({ masId, unit: unit || '', path })),
-    blueprintRead: (masId, path) => request('/pomasa/blueprint.read' + q({ masId, path })),
+    blueprintRead: (masId, path, stage) => request('/pomasa/blueprint.read' + q({ masId, path, ...(stage != null ? { stage } : {}) })),
     runLog: (masId, unit) => request('/pomasa/run.log' + q({ masId, unit: unit || '' })),
     generationLog: (masId) => request('/pomasa/generation.log' + q({ masId })),
     createMas: (fields) => request('/pomasa/mas.create', { method: 'POST', body: JSON.stringify(fields) }),

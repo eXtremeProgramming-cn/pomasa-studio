@@ -568,6 +568,11 @@ test('L2 blueprint.read: reads within MAS root, rejects escapes', async () => {
   assert.match(esc.json.error, /escapes/)
   const miss = await call(routes, '/pomasa/blueprint.read?masId=bp&path=agents/nope.md')
   assert.equal(miss.code, 404)
+  // fallback: declared agent path missing -> resolve by stage index from agents/
+  fs.writeFileSync(path.join(home, 'bp', 'agents', '01.overview.md'), '# 概览蓝图')
+  const fb = await call(routes, '/pomasa/blueprint.read?masId=bp&path=agents/unlinked.md&stage=1')
+  assert.equal(fb.code, 200)
+  assert.match(fb.json.content, /概览蓝图/)
 })
 
 await main()

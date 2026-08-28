@@ -118,15 +118,16 @@ export function apply(ctx, config = {}) {
   // back to Ungrouped.
   async function ensureWorkspace(cwd, title) {
     let wr
-    try { wr = ctx.get('workspaceRegistry') } catch { return }
-    if (!wr || typeof wr.resolveByPath !== 'function' || typeof wr.create !== 'function') return
+    try { wr = ctx.get('workspaceRegistry') } catch { return null }
+    if (!wr || typeof wr.resolveByPath !== 'function' || typeof wr.create !== 'function') return null
     try {
       let ws = await wr.resolveByPath(cwd)
       if (!ws) ws = await wr.create(cwd)
       if (title && ws && typeof ws.setTitle === 'function') {
         try { await ws.setTitle(title) } catch { /* title is cosmetic */ }
       }
-    } catch { /* workspace registry may reject non-directory paths; ignore */ }
+      return ws || null
+    } catch { return null }
   }
 
   function hasMas(masId) {
@@ -153,7 +154,7 @@ export function apply(ctx, config = {}) {
   // driver instead: resolve the agentDefaultModel selection, create the agent via
   // the agents registry (which composes the session the normal way), and install
   // the model selection into the agent's scope.
-  async function createAgentSession(sessionId, cwd, promptText) {
+  async function createAgentSession(sessionId, cwd, promptText, title) {
     const agents = ctx.get('agents')
     if (agents === undefined || typeof agents.create !== 'function') return null
     // loader siblings mount concurrently; wait for the complete application
@@ -186,6 +187,13 @@ export function apply(ctx, config = {}) {
       },
     })
     agent.followup(promptMessage(promptText))
+    // Attach the session to its workspace record so it leaves "Ungrouped".
+    // DSH groups by exact cwd, so the workspace whose path equals this
+    // session's cwd is the one it belongs to.
+    const ws = await ensureWorkspace(cwd, title)
+    if (ws && typeof ws.insertSessionBefore === 'function') {
+      try { await ws.insertSessionBefore(sessionId) } catch { /* attach is best-effort */ }
+    }
     return agent
   }
 
@@ -279,8 +287,6 @@ export function apply(ctx, config = {}) {
       createdAt: Date.now(),
     })
 
-    await ensureWorkspace(root, `pomasa · ${id}`)
-
     // copy any uploaded ref materials into references/input/
     const refs = Array.isArray(body.refFiles) ? body.refFiles : []
     for (const rf of refs) {
@@ -321,7 +327,7 @@ export function apply(ctx, config = {}) {
     }
 
     const sessionId = newSessionId('pomasa-gen')
-    const agent = await createAgentSession(sessionId, root, generationPrompt(gens, id, root))
+    const agent = await createAgentSession(sessionId, root, generationPrompt(gens, id, root), `pomasa · ${id}`)
     if (!agent) return { ok: true, masId: id, generation: 'external' }
     genSessions.set(id, { agent, sessionId, startedAt: Date.now() })
     sessionOwner.set(sessionId, { masId: id, kind: 'gen' })
@@ -342,9 +348,8 @@ export function apply(ctx, config = {}) {
     const runSessionIds = {}
     for (const { key, root } of targets) {
       fs.mkdirSync(root, { recursive: true })
-      await ensureWorkspace(root, `pomasa · ${masId}`)
       const sessionId = newSessionId('pomasa-run')
-      const agent = await createAgentSession(sessionId, root, runPrompt(masDir(home(), masId), root, key))
+      const agent = await createAgentSession(sessionId, root, runPrompt(masDir(home(), masId), root, key), `pomasa · ${masId} · 运行`)
       if (!agent) return { ok: false, error: 'agent 会话服务不可用（agents.create 未提供）' }
       const runKey = `${masId}|${key || ''}`
       runSessions.set(runKey, { agent, sessionId, startedAt: Date.now() })
@@ -438,10 +443,27 @@ export function apply(ctx, config = {}) {
         const masId = q.masId
         if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
         const base = path.resolve(masDir(home(), masId))
-        const rel = String(q.path || '')
-        const target = path.resolve(base, rel)
+        let rel = String(q.path || '')
+        let target = path.resolve(base, rel)
         if (target !== base && !target.startsWith(base + path.sep)) {
           return jsonResponse(res, 400, { ok: false, error: 'path escapes mas root' })
+        }
+        if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
+          // The generator may name blueprint files differently than the
+          // descriptor records. Fall back to scanning agents/ for the file
+          // whose numeric prefix matches the stage index (NN.<name>.md).
+          const stage = parseInt(String(q.stage || ''), 10)
+          if (Number.isInteger(stage) && stage >= 0) {
+            const agentsDir = path.join(base, 'agents')
+            const prefix = String(stage).padStart(2, '0') + '.'
+            if (fs.existsSync(agentsDir)) {
+              const found = fs.readdirSync(agentsDir).find((n) => n.startsWith(prefix) && fs.statSync(path.join(agentsDir, n)).isFile())
+              if (found) {
+                rel = path.join('agents', found)
+                target = path.join(agentsDir, found)
+              }
+            }
+          }
         }
         if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
           return jsonResponse(res, 404, { ok: false, error: 'not found' })

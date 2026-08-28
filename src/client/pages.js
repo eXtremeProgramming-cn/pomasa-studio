@@ -334,7 +334,7 @@ function MasDetail(props) {
             title: agentFile ? '查看蓝图 ' + str(agentFile) : undefined,
             onClick: (e) => {
               e.stopPropagation()
-              if (agentFile) setBp({ title: str(s.title), path: String(agentFile) })
+              setBp({ title: str(s.title), path: agentFile ? String(agentFile) : '', index: s.index })
             },
           }, str(s.title)),
           h('div', { className: 'ps-stage-count' }, stageCountText(s)),
@@ -365,7 +365,7 @@ function MasDetail(props) {
       ) : null,
     ),
 
-    bp ? h(BlueprintModal, { api, masId, path: bp.path, title: bp.title, onClose: () => setBp(null) }) : null,
+    bp ? h(BlueprintModal, { api, masId, path: bp.path, title: bp.title, stage: bp.index, onClose: () => setBp(null) }) : null,
   )
 }
 
@@ -374,7 +374,7 @@ function BlueprintModal(props) {
   const [err, setErr] = React.useState(null)
   React.useEffect(() => {
     let stop = false
-    props.api.blueprintRead(props.masId, props.path)
+    props.api.blueprintRead(props.masId, props.path, props.stage)
       .then((r) => { if (!stop) { if (r.ok) setData(r); else setErr(r.error || '读取失败') } })
       .catch((e) => { if (!stop) setErr(String(e && e.message || e)) })
     return () => { stop = true }
