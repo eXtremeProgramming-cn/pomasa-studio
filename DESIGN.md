@@ -358,3 +358,17 @@ work 段定位单元，契约定容器、index 定实例、文件定内容
 4. index.json 由阶段 agent 写，run.json 由 orchestrator 写，插件不代写（仅降级兜底）。OBV 三模式均为必选是此条成立的前提。
 5. 新建表单用 user_input 全量字段（去掉输出格式），留空项由生成器兜底"由 AI 建议"。wiki（BHV-08）不提供。
 6. 会话日志可折叠展开，生成与运行会话同一处理，默认收起，展开含 AI 思考过程（如运行时提供）；日志是追溯面板，不参与状态推导。
+
+## 附录 A：生成端到端测试结论（2026-08-28）
+
+用全新模型子代理（只读 SKILL.md 与模式目录，不掺任何 OBV 提示）生成 llm_south 研究 MAS，验证"模式驱动生成"成立。测试环境 /tmp/pomasa-gen-e2e/，结果：
+
+- 9/9 Required 模式全采纳，含 OBV 三条。
+- pomasa.json 合法，schema_version obv-1，work {mode: single}，8 阶段各带契约，契约路径相对单元根。
+- orchestrator 蓝图内嵌 run.json 维护协议（初始写入、每阶段边界 completed 加时间戳、收尾封口）；9 份蓝图全部维护 index.json。
+- README 含 Built with POMASA 溯源块。
+
+实现前注意事项：
+
+1. 契约 id 键名：生成器产出 pomasa.json 时用 `artifact` 字段镜像蓝图 Artifact 标签（DESIGN 3.2 示例写的是 `id`）。实现读取端两个都接受，或以 `artifact` 为准。
+2. 交付格式：user_input 不声明"仅 Markdown"时，生成器会照常采纳 STR-09 并产出 _output/ 与导出管线。Studio 的 mas.create 生成 user_input 时必须写死交付格式 = markdown，否则生成的 MAS 自带 Studio 已声明不需要的导出管线。
