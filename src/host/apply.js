@@ -116,17 +116,25 @@ export function apply(ctx, config = {}) {
       ? { provider: selection.provider, model: selection.model }
       : defaultModel() || {}
     const agentPkg = await import('@deepseek-ai/dsh-agent').catch(() => null)
+    // Compose the deployment's agent preset like the chat/API create path does
+    // (presets.mount attaches the tool loadout, persona, and model selection).
+    // Without it a bare session has NO tools: the model improvises
+    // "<tool_calls>" as plain text and the loop cannot execute anything.
+    const presets = ctx.get('agentPresets')
+    let resolvedPreset = null
+    if (presets && typeof presets.resolve === 'function') {
+      try { resolvedPreset = (await presets.resolve(undefined)).id } catch { /* no roster */ }
+    }
     const { agent } = await agents.create({
       sessionId,
       meta: { cwd },
       agentOptions,
-      // installModelSelection returns a disposer FUNCTION; setupAndPublish does
-      // `setupCommit?.commit()`, so the callback must return nothing (block
-      // body) exactly like the headless driver. An expression body hands the
-      // disposer to commit() -> "(intermediate value)?.commit is not a function".
-      setup: agentPkg && selection
-        ? (agentCtx) => { agentPkg.installModelSelection(agentCtx, { current: selection, assembled: undefined }) }
-        : undefined,
+      setup: async (agentCtx) => {
+        // block body: setupAndPublish awaits it and then calls setupCommit?.commit();
+        // returning anything non-undefined breaks that contract (see earlier fix)
+        if (agentPkg && selection) agentPkg.installModelSelection(agentCtx, { current: selection, assembled: undefined })
+        if (presets && resolvedPreset) await presets.mount(agentCtx, resolvedPreset)
+      },
     })
     agent.followup(promptMessage(promptText))
     return agent
