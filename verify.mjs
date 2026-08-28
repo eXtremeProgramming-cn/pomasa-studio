@@ -12,6 +12,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import vm from 'node:vm'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url))
@@ -379,6 +380,46 @@ test('L2 safety: generate requires topic, rejects dup ids', async () => {
   const dup = await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'dup', topic: 't' })
   assert.equal(dup.json.ok, false)
   assert.match(dup.json.error, /exists/)
+})
+
+test('L2 client bundle: loads and registers conversation.view', () => {
+  const bundlePath = path.join(ROOT, 'lib/client.js')
+  assert.ok(fs.existsSync(bundlePath), 'lib/client.js missing — run npm run build:client first')
+  const src = fs.readFileSync(bundlePath, 'utf8')
+  const registrations = []
+  const loaded = []
+  const sandbox = {
+    window: {
+      __ModuleLoader__: {
+        load(cfg) {
+          loaded.push(cfg.id)
+          const React = { createElement: (type, props, ...kids) => ({ type, props, kids }) }
+          const mod = cfg.factory((name) => {
+            if (name === 'react') return React
+            throw new Error('unexpected require: ' + name)
+          })
+          const vc = {
+            inject(slotName, factory) {
+              assert.equal(slotName, 'conversation.view')
+              assert.equal(typeof factory(), 'function', 'inject factory must return a dispose fn')
+            },
+            register(def, render) {
+              registrations.push(def)
+              assert.ok(render({ sessionId: 's-1' }), 'render must return an element')
+              return () => {}
+            },
+          }
+          mod.apply({ get: (k) => (k === 'slots' ? vc : undefined) })
+        },
+      },
+    },
+  }
+  vm.createContext(sandbox)
+  vm.runInContext(src, sandbox)
+  assert.deepEqual(loaded, ['pomasa-studio'])
+  assert.equal(registrations.length, 1)
+  assert.equal(registrations[0].id, 'pomasa-studio')
+  assert.equal(registrations[0].name, 'conversation.view')
 })
 
 await main()
