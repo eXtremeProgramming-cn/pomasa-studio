@@ -96,7 +96,7 @@ export function apply(ctx) {
       onClick: () => panel.toggle(),
       title: open ? '收起 POMASA Studio' : '打开 POMASA Studio',
       'aria-expanded': open ? 'true' : 'false',
-    }, 'POMASA Studio')
+    }, h('span', { className: 'ps-footer-glyph' }, '◫'), 'POMASA Studio')
   }
 
   function applySlots(slots, h2) {

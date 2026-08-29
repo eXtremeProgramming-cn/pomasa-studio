@@ -58,7 +58,7 @@ Studio 是分栏工作台：左栏 `.ps-nav` MAS 导航（状态点、单元数�
 1. **`conversation.view` tab**（id `pomasa-studio`, order 30）：会话内、占正文区，左侧 DSH 会话树始终在屏，顶部 tab 条一键切回 Chat。这是"回普通会话看操作过程"的主路径。
 2. **`shell.overlay` 冷启动面板**（id `pomasa-studio`, order 10）：footer 底部按钮开关。**关键平台约束**：DSH 0.1 对空白会话（`blank && composerPhase==='blank'`）不渲染会话头部与 view ring，故 tab 只在"有对话内容的会话"里出现；面板补足冷启动/空白态。面板是**有界**的：`.ps-shell-root` 全帧 click-through（pointer-events:none），左 264px `.ps-shell-nav` 透空保持侧栏可见可点（侧栏宽 clamp(264,420)，收起为 56px rail），右侧 `.ps-shell-panel` 才 pointer-events:auto。不遮挡、不占屏，任意界面状态可达。
 
-footer 按钮文案为 `POMASA Studio`（激活态为品牌色实心填充 + 白字，`aria-expanded` 同步；hover 有 tooltip「打开/收起 POMASA Studio」）。`sidebar.footer.action`（order 20）只做面板开关，不调 workspaces/sessions 服务（早期尝试"自动开会话+预置 view"，因空白会话门控而放弃，见下）。
+footer 按钮文案为 `POMASA Studio`，用 DSH 标准按钮 token 做成真按钮：收起时 `--dsw-alias-button-floating-fill` 浮起式实心底 + 前置小图标（读起来是按钮不是文字行），打开时 `--dsw-alias-state-business-primary` 强调色实心 + `brand-primary-invert` 白字（与活跃 tab 同款强调色），`aria-expanded` 同步，hover tooltip「打开/收起 POMASA Studio」。`sidebar.footer.action`（order 20）只做面板开关，不调 workspaces/sessions 服务（早期尝试"自动开会话+预置 view"，因空白会话门控而放弃，见下）。
 
 **创建入口**：`新建 MAS` 按钮**永远在左栏导航头**，右栏任何空态都不放按钮（零 MAS 时右栏是纯引导 hero，指向左栏按钮）。全屏因此只有一处创建入口，无重复。
 

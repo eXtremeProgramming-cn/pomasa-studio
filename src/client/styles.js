@@ -118,11 +118,15 @@ export const CSS = `
 .ps-stage-count { font-size: 12px; color: var(--dsw-alias-label-caption); }
 
 /* ---------- footer action / shell panel ---------- */
-.ps-footer-action { cursor: pointer; padding: 8px 12px; font-size: 14px; font-weight: 600; color: var(--dsw-alias-label-primary); display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 150ms, color 150ms; border-radius: 8px; margin: 2px 8px; white-space: nowrap; }
-.ps-footer-action:hover { background: var(--dsw-alias-interactive-bg-hover); }
-/* clear open/closed affordance: filled brand pill when the workbench panel is up */
-.ps-footer-action.on { background: var(--dsw-alias-brand-primary); color: #fff; }
-.ps-footer-action.on:hover { background: var(--dsw-alias-button-primary-hover, var(--dsw-alias-brand-primary)); filter: brightness(1.06); }
+/* footer launcher is a real button: floating-pill surface when closed,
+   business-primary accent when the workbench panel is open (both DSH tokens) */
+.ps-footer-action { cursor: pointer; padding: 7px 12px; font-size: 14px; font-weight: 600; color: var(--dsw-alias-label-primary); display: inline-flex; align-items: center; justify-content: center; gap: 7px; transition: background 150ms, color 150ms, border-color 150ms; border-radius: 8px; margin: 2px 8px; white-space: nowrap; background: var(--dsw-alias-button-floating-fill); border: 1px solid var(--dsw-alias-border-l2); }
+.ps-footer-action:hover { background: var(--dsw-alias-button-floating-hover); }
+.ps-footer-glyph { font-size: 12px; line-height: 1; opacity: 0.8; }
+.ps-footer-action .ps-footer-glyph { color: var(--dsw-alias-state-business-primary); }
+.ps-footer-action.on { background: var(--dsw-alias-state-business-primary); border-color: transparent; color: var(--dsw-alias-brand-primary-invert, #fff); }
+.ps-footer-action.on .ps-footer-glyph { color: inherit; opacity: 1; }
+.ps-footer-action.on:hover { background: var(--dsw-alias-button-info-hover, var(--dsw-alias-state-business-primary)); filter: brightness(1.05); }
 
 /* shell.overlay workbench panel — bounded to the center column, the DSH
    sidebar stays visible and clickable underneath (click-through root). */
