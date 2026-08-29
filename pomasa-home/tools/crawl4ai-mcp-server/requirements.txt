@@ -7,3 +7,5 @@ aiohttp==3.11.12
 httpx==0.27.2
 pydantic==2.10.6
 ddgs>=7.3.2
+# POMASA 兼容 pin:litellm 新版带 Rust 核心,老工具链(rustc<1.56)装不上,固定到纯 Python 版
+litellm<1.60.0

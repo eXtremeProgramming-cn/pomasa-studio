@@ -32,7 +32,9 @@ function pickPython() {
   return 'python3'
 }
 
-/** Build the venv once. A stale venv (built with an unusable python, deps missing) is rebuilt. */
+/**
+ * Build the venv once. A stale venv (built with an unusable python, deps missing) is rebuilt.
+ */
 async function ensureVenv(dir) {
   const bin = path.join(dir, 'venv', 'bin', 'python')
   const pip = path.join(dir, 'venv', 'bin', 'pip')
@@ -50,14 +52,11 @@ async function ensureVenv(dir) {
 }
 
 /**
- * Ensure ~/.pomasa/tools/crawl4ai-mcp-server/venv exists and ~/.pomasa/.mcp.json
- * declares the crawl4ai server at that absolute path. Returns the server dir on
- * success, null on failure (agents then fall back to curl / LLM tools).
+ * Write <pomasaHome>/.mcp.json declaring the crawl4ai server at @param dir,
+ * preserving any other servers the user already declared. Pure write — no venv
+ * work — so it is unit-testable without performing a real install.
  */
-export async function provisionWorkspaceMcp(pomasaHome) {
-  if (!fs.existsSync(path.join(pomasaHome, 'tools', 'crawl4ai-mcp-server', 'src', 'index.py'))) return null
-  const dir = serverDir(pomasaHome)
-  if (!await ensureVenv(dir)) return null
+export function writeMcpDeclaration(pomasaHome, dir) {
   const file = path.join(pomasaHome, '.mcp.json')
   let cfg = { mcpServers: {} }
   try {
@@ -72,4 +71,16 @@ export async function provisionWorkspaceMcp(pomasaHome) {
   fs.mkdirSync(pomasaHome, { recursive: true })
   fs.writeFileSync(file, JSON.stringify(cfg, null, 2) + '\n', 'utf8')
   return dir
+}
+
+/**
+ * Ensure ~/.pomasa/tools/crawl4ai-mcp-server/venv exists and ~/.pomasa/.mcp.json
+ * declares the crawl4ai server at that absolute path. Returns the server dir on
+ * success, null on failure (agents then fall back to curl / LLM tools).
+ */
+export async function provisionWorkspaceMcp(pomasaHome) {
+  if (!fs.existsSync(path.join(pomasaHome, 'tools', 'crawl4ai-mcp-server', 'src', 'index.py'))) return null
+  const dir = serverDir(pomasaHome)
+  if (!await ensureVenv(dir)) return null
+  return writeMcpDeclaration(pomasaHome, dir)
 }

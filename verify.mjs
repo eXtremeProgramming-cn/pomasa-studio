@@ -582,20 +582,15 @@ test('L2 generated: generator descriptor shape (bare agents + prose orchestrator
 
 test('L1 mcp provision: self-contained .mcp.json under the pomasa home, no external path', async () => {
   const home = tempHome()
-  // simulate an already-installed crawl4ai under <home>/tools (the reuse path):
-  // a real venv is not buildable in CI, so stub the python/pip executables
+  // writeMcpDeclaration is pure — test it directly so verify never performs a
+  // real venv build (a real install can take minutes).
   const server = path.join(home, 'tools', 'crawl4ai-mcp-server')
-  fs.mkdirSync(path.join(server, 'venv', 'bin'), { recursive: true })
-  for (const name of ['python', 'pip']) {
-    fs.writeFileSync(path.join(server, 'venv', 'bin', name), '#!/bin/sh\nexit 0\n')
-    fs.chmodSync(path.join(server, 'venv', 'bin', name), 0o755)
-  }
   fs.mkdirSync(path.join(server, 'src'), { recursive: true })
   fs.writeFileSync(path.join(server, 'src', 'index.py'), '# mcp server\n')
   // a user-declared server must be preserved
   fs.writeFileSync(path.join(home, '.mcp.json'), JSON.stringify({ mcpServers: { serper: { command: 'uvx', args: ['serper-mcp'] } } }))
-  const { provisionWorkspaceMcp } = await import(path.join(ROOT, 'src/host/core/mcp-provision.js'))
-  assert.equal(await provisionWorkspaceMcp(home), server, 'returns the installed server dir under home')
+  const { writeMcpDeclaration } = await import(path.join(ROOT, 'src/host/core/mcp-provision.js'))
+  assert.equal(writeMcpDeclaration(home, server), server)
   const cfg = JSON.parse(fs.readFileSync(path.join(home, '.mcp.json'), 'utf8'))
   assert.ok(cfg.mcpServers.serper, 'existing servers preserved')
   const c = cfg.mcpServers.crawl4ai
