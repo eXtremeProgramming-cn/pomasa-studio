@@ -29,7 +29,7 @@
 
 工作台是分栏形态：左栏 MAS 导航（列表 + 新建/删除），右栏详情工作台（信息条、运行控制、阶段条、产物卡、查看器）；新建表单在右栏内。无整页路由。
 
-渲染面（见 UI.md「最终界面形态」）：同一套工作台挂在 `conversation.view` tab（会话内，左侧会话树始终在屏）与 `shell.overlay` 冷启动面板（footer 按钮，有界不遮挡，空白会话也可达）两个槽位。流转：导航选 MAS → 右栏详情；新建 → 右栏表单，提交后回导航并进入该 MAS 详情。
+渲染面（见 UI.md「最终界面形态」）：唯一入口是左下角 `POMASA Studio` 按钮打开的 `shell.overlay` 有界面板（任意界面状态可达，会话内 tab 已移除）。流转：导航选 MAS → 右栏详情；新建 → 右栏表单，提交后回导航并进入该 MAS 详情。
 
 ### 1.2 页面 A：MAS 列表
 
@@ -70,7 +70,7 @@
 - 阶段状态以单元根的 run.json 为权威。
 - 兜底：run.json 缺失该阶段记录时，用该阶段 index.json 的存在性与文件时间推导。
 - 产物数量读 index.json 条目数。
-- 运行中判定：`run.json.status == running`，配合活动流是否活跃。
+- 运行中判定：以 DSH 宿主 agent 注册表为权威（`ctx.get('agents').get(sessionId)?.status === 'running'`，与 apiserver 会话汇总同源）；run.json 停在 `running` 而 agent 已死 → 判定运行失败（`run-failed`），会话中断不再恒显"运行中"。
 - 绝不读 orchestrator 的会话文本。
 
 ### 1.5 产物点击行为
