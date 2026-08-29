@@ -317,6 +317,7 @@ function mockCtx() {
         title: null,
         sessions: [],
         setTitle(t) { this.title = t },
+        attachSession(s) { this.sessions.push(s) },
         insertSessionBefore(s) { this.sessions.push(s) },
       }
       wsObjects.set(id, object)

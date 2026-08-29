@@ -138,21 +138,10 @@ export function apply(ctx) {
         } catch { /* cosmetic */ }
       }
     } catch { return retry() }
-    // Attach remains best-effort and silent: DSH only accounts sessions that
-    // are CREATED through the workspace flow (with a workspaceId); a session
-    // created by the plugin host with just a cwd is "not accounted" and DSH
-    // refuses insertSessionBefore for it. The workspace creation above still
-    // gives the sidebar its POMASA folder.
-    const wid = ws && (ws.workspaceId ?? ws.id)
-    if (!wid || typeof svc.insertSessionBefore !== 'function') return retry()
-    let allOk = true
-    for (const sid of meta.sessions || []) {
-      try {
-        const r = await svc.insertSessionBefore(wid, sid)
-        if (!(r && r.ok)) allOk = false
-      } catch { allOk = false }
-    }
-    if (!allOk) retry()
+    // Session accounting happens on the HOST via workspace.attachSession()
+    // (createAgentSession); there is no client RPC for it, so the client only
+    // guarantees the POMASA workspace folder exists and is titled correctly.
+    if (!ws) retry()
   }
 
   function applySlots(slots, h2) {

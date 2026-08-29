@@ -111,12 +111,15 @@ export function apply(ctx, config = {}) {
   async function ensurePomasaWorkspace() {
     ensurePomasaHome(config)
     const ws = await ensureWorkspace(pomasaHome(config), 'POMASA')
-    if (ws && typeof ws.insertSessionBefore === 'function') {
+    const attach = ws && (typeof ws.attachSession === 'function'
+      ? () => ws.attachSession
+      : (typeof ws.insertSessionBefore === 'function' ? () => ws.insertSessionBefore : null))
+    if (attach) {
       try {
         for (const m of loadRegistry(config).mas) {
           const ids = [m.lastGenSessionId, ...Object.values(m.lastRunSessionIds || {})].filter(Boolean)
           for (const sid of ids) {
-            try { await ws.insertSessionBefore(sid) } catch { /* stale session id */ }
+            try { await attach()(sid) } catch { /* stale session id */ }
           }
         }
       } catch { /* reconciliation is best-effort */ }
@@ -231,11 +234,20 @@ export function apply(ctx, config = {}) {
       },
     })
     agent.followup(promptMessage(promptText))
-    // Attach the session to the single POMASA workspace so the sidebar shows
-    // one node holding every pomasa session.
+    // Account the session into the single POMASA workspace so the sidebar shows
+    // one node holding every pomasa session. The accounting op is
+    // workspace.attachSession(sessionId) — the very thing DSH's own "New
+    // Session" flow runs after creating a session (apiserver sessions.create).
+    // insertSessionBefore only reorders already-accounted sessions and refuses
+    // others ("session is not accounted").
     const ws = await ensureWorkspace(home(), 'POMASA')
-    if (ws && typeof ws.insertSessionBefore === 'function') {
-      try { await ws.insertSessionBefore(sessionId) } catch { /* attach is best-effort */ }
+    if (ws) {
+      const attach = typeof ws.attachSession === 'function'
+        ? () => ws.attachSession(sessionId)
+        : (typeof ws.insertSessionBefore === 'function' ? () => ws.insertSessionBefore(sessionId) : null)
+      if (attach) {
+        try { await attach() } catch { /* attach is best-effort */ }
+      }
     }
     return agent
   }
