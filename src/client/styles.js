@@ -223,6 +223,7 @@ export const CSS = `
 .ps-dot.running { color: var(--dsw-alias-brand-primary); }
 .ps-dot.generating { color: var(--dsw-alias-state-warn-primary); }
 .ps-dot.failed { color: var(--dsw-alias-state-error-primary); }
+.ps-dot.completed { color: var(--dsw-alias-state-success-primary); }
 .ps-dot.idle { color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-caption)); }
 .ps-nav-name { font-size: 14px; font-weight: 550; color: var(--dsw-alias-label-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
 .ps-nav-del { margin-left: auto; opacity: 0; padding: 2px 8px; font-size: 12px; }

@@ -105,10 +105,21 @@ export function apply(ctx, config = {}) {
   // The user-facing ~/.pomasa is provisioned from the pomasa-home/ template
   // (one visible directory in the repo): copy missing files in, never
   // overwrite what the user already has. Mirrors how bootstrap workspaces ship
-  // a default shape.
+  // a default shape. Also binds every tracked MAS session (generation and run)
+  // into the single POMASA workspace so they leave "Ungrouped".
   async function ensurePomasaWorkspace() {
     ensurePomasaHome(config)
-    await ensureWorkspace(pomasaHome(config), 'POMASA')
+    const ws = await ensureWorkspace(pomasaHome(config), 'POMASA')
+    if (ws && typeof ws.insertSessionBefore === 'function') {
+      try {
+        for (const m of loadRegistry(config).mas) {
+          const ids = [m.lastGenSessionId, ...Object.values(m.lastRunSessionIds || {})].filter(Boolean)
+          for (const sid of ids) {
+            try { await ws.insertSessionBefore(sid) } catch { /* stale session id */ }
+          }
+        }
+      } catch { /* reconciliation is best-effort */ }
+    }
   }
 
   // Sessions group in the DSH sidebar under the workspace whose canonical path
@@ -117,15 +128,33 @@ export function apply(ctx, config = {}) {
   // registered once at startup (ensurePomasaWorkspace) and lazily re-resolved on
   // attach. Non-fatal: if the registry service is unavailable, grouping simply
   // falls back to Ungrouped.
+  //
+  // The host exposes the registry as a DIRECT ctx property (ctx.workspaceRegistry
+  // — apiproxy uses ctx.workspaceRegistry.*), not via ctx.get(); the old
+  // ctx.get('workspaceRegistry') silently resolved to undefined in the real
+  // profile and no workspace record was ever created (sessions landed in
+  // "Ungrouped" under a cwd-basename title like ".pomasa").
   async function ensureWorkspace(cwd, title) {
     let wr
-    try { wr = ctx.get('workspaceRegistry') } catch { return null }
+    try { wr = ctx.workspaceRegistry || ctx.get('workspaceRegistry') } catch { wr = null }
     if (!wr || typeof wr.resolveByPath !== 'function' || typeof wr.create !== 'function') return null
     try {
       let ws = await wr.resolveByPath(cwd)
       if (!ws) ws = await wr.create(cwd)
-      if (title && ws && typeof ws.setTitle === 'function') {
-        try { await ws.setTitle(title) } catch { /* title is cosmetic */ }
+      // The registry auto-titles a created workspace from its path basename
+      // (".pomasa"); rename to the canonical workspace name when possible.
+      if (title && ws) {
+        if (typeof ws.setTitle === 'function') {
+          try { await ws.setTitle(title) } catch { /* title is cosmetic */ }
+        } else if (typeof wr.rename === 'function') {
+          const id = ws.workspaceId ?? ws.id
+          if (id != null) {
+            try {
+              const rn = await wr.rename(id, title)
+              ws = rn?.workspace ?? rn ?? ws
+            } catch { /* title is cosmetic */ }
+          }
+        }
       }
       return ws || null
     } catch { return null }
@@ -253,18 +282,32 @@ export function apply(ctx, config = {}) {
 
   function masSummary(m) {
     const live = dispatch(m.id)
-    const status =
-      live.gen && !live.generated
-        ? 'generating'
-        : live.run
-          ? 'running'
-          : m.status === 'failed'
-            ? 'failed'
-            : 'idle'
+    const root = masDir(home(), m.id)
+    const descriptor = loadDescriptor(root)
+    const generated = !!descriptor && isGenerationComplete(m.id)
+    let status
+    if (live.gen && !generated) {
+      // a generation session is alive and not complete
+      status = 'generating'
+    } else if (!generated) {
+      // no usable MAS yet: a generation was attempted (started, or its session
+      // already died) -> gen-failed; never attempted -> idle
+      const attempted = !!(m.lastGenSessionId) || m.status === 'generating' || m.status === 'failed'
+      status = attempted ? 'gen-failed' : 'idle'
+    } else if (live.run) {
+      status = 'running'
+    } else {
+      // generated; classify from the persistent run record — if run.json is
+      // mid-run but no run session is alive any more, the session died
+      const rf = runFinalState(root, descriptor)
+      if (rf === 'failed') status = 'run-failed'
+      else if (rf === 'running') status = 'run-failed'
+      else if (rf === 'completed') status = 'completed'
+      else status = 'idle'
+    }
     let unitCount = 0
     try {
-      const d = loadDescriptor(masDir(home(), m.id))
-      if (d && Array.isArray(d.stages)) unitCount = unitListing(config, d, m.id).length
+      if (descriptor && Array.isArray(descriptor.stages)) unitCount = unitListing(config, descriptor, m.id).length
     } catch { /* non-fatal: the list still renders */ }
     return {
       id: m.id,
@@ -275,6 +318,48 @@ export function apply(ctx, config = {}) {
       createdAt: m.createdAt ?? null,
       lastRunAt: m.lastRunAt ?? null,
     }
+  }
+
+  /**
+   * Read the persistent run record across every unit root of a generated MAS and
+   * return the overall conclusion:
+   *   'running'    — at least one run.json is mid-run (status running/queued)
+   *   'failed'     — at least one unit ended in failure/cancel/error
+   *   'completed'  — every present run.json is done
+   *   null         — no run has been started yet
+   * Mid-run + no live session (masSummary's branch) means the run session died
+   * before its record was closed — that is the user-visible "运行未完成但是会话
+   * 死了" failure.
+   */
+  function runFinalState(masRoot, descriptor) {
+    const workspace = path.join(masRoot, 'workspace')
+    const files = []
+    if (descriptor?.work?.mode === 'single') {
+      files.push(path.join(workspace, 'run.json'))
+    } else {
+      if (fs.existsSync(workspace)) {
+        for (const e of fs.readdirSync(workspace, { withFileTypes: true })) {
+          if (e.isDirectory()) files.push(path.join(workspace, e.name, 'run.json'))
+        }
+      }
+    }
+    const present = files.filter((f) => fs.existsSync(f))
+    if (present.length === 0) return null
+    let running = false
+    let failed = false
+    let completed = false
+    for (const f of present) {
+      let st = 'running'
+      try { st = String((JSON.parse(fs.readFileSync(f, 'utf8'))).status ?? 'running') } catch { /* unreadable = running */ }
+      st = st.toLowerCase()
+      if (st === 'running' || st === 'queued') running = true
+      else if (st === 'completed' || st === 'done') completed = true
+      else failed = true
+    }
+    if (running) return 'running'
+    if (failed) return 'failed'
+    if (completed) return 'completed'
+    return null
   }
 
   async function createMas(body) {
@@ -348,6 +433,15 @@ export function apply(ctx, config = {}) {
   async function startRun(body) {
     const { masId } = body
     if (!hasMas(masId)) return { ok: false, error: `no such mas: ${masId}` }
+
+    // One active session per MAS — checked BEFORE the descriptor so a still-
+    // generating MAS (which has no pomasa.json yet) is refused for the right
+    // reason, and a run cannot start while another run session is alive.
+    if (genSessions.has(masId)) return { ok: false, error: 'MAS 正在生成中，生成完成前不能运行' }
+    for (const key of runSessions.keys()) {
+      if (key.startsWith(`${masId}|`)) return { ok: false, error: '已有运行会话进行中，请等待完成或先取消' }
+    }
+
     const descriptor = loadDescriptor(masDir(home(), masId))
     if (!descriptor) return { ok: false, error: 'mas not generated yet (no pomasa.json)' }
 
@@ -423,7 +517,10 @@ export function apply(ctx, config = {}) {
         } else {
           const reg = loadRegistry(config)
           const m = reg.mas.find((x) => x.id === masId)
-          status = m && m.status === 'failed' ? 'failed' : 'idle'
+          // a generation was attempted (session started and is gone, or record
+          // still says so) but never completed -> failed, not idle
+          const attempted = !!(m && (m.lastGenSessionId || m.status === 'generating' || m.status === 'failed'))
+          status = attempted ? 'failed' : 'idle'
         }
         return jsonResponse(res, 200, { ok: true, status, step: live.gen ? 'generating' : null })
       }

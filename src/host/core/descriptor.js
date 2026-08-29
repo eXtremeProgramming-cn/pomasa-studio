@@ -30,12 +30,25 @@ export function loadDescriptor(masRoot) {
       index: s.index ?? i,
       id: s.id ?? `stage${i}`,
       title: s.title ?? s.id ?? `Stage ${i}`,
-      agent: s.agent_file || s.agent || null,
+      agent: normalizeAgentPath(s.agent_file || s.agent),
       kind: s.kind ?? 'stage',
       contracts: Array.isArray(s.contracts) ? s.contracts.map(normalizeContract) : [],
     }))
   }
   return descriptor
+}
+
+/**
+ * Agent blueprint paths are MAS-root-relative. The generator emits bare
+ * filenames ("01.initial_scanner.md") while our own fixtures use the
+ * "agents/..." form; normalize both to the canonical agents/-prefixed path so
+ * completion checks, blueprint reads and any other consumers resolve
+ * consistently.
+ */
+function normalizeAgentPath(p) {
+  if (!p) return null
+  const s = String(p)
+  return s.includes('/') ? s : 'agents/' + s
 }
 
 export function normalizeWork(work) {

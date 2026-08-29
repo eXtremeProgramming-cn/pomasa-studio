@@ -292,7 +292,11 @@ function mockCtx() {
       return w
     },
   }
-  const ctx = { get: (k) => ({ webServer, agentLoop, agents: agentRegistry, agentDefaultModel: { currentSelection: () => ({ provider: 'mock', model: 'mock-model' }) }, workspaceRegistry }[k]) }
+  // the host exposes the registry as a DIRECT ctx property (ctx.workspaceRegistry)
+  const ctx = {
+    get: (k) => ({ webServer, agentLoop, agents: agentRegistry, agentDefaultModel: { currentSelection: () => ({ provider: 'mock', model: 'mock-model' }) }, workspaceRegistry }[k]),
+    workspaceRegistry,
+  }
   return { ctx, routes, agents: agentsMap, agentLoop, agentRegistry, workspaces }
 }
 
@@ -427,7 +431,12 @@ test('L2 workspaces: one "POMASA" workspace at the pomasa home holds every sessi
   apply(ctx, { pomasaHome: home })
   // generation session (mas.create) + run session (run.start, single mode)
   await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'wstest', topic: 't' })
-  writeMas(home, 'wstest', SINGLE_DESCRIPTOR)
+  // finish generation so the single-active-session guard frees the run slot
+  fs.mkdirSync(path.join(home, 'wstest', 'agents'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'wstest', 'pomasa.json'), JSON.stringify(SINGLE_DESCRIPTOR))
+  fs.writeFileSync(path.join(home, 'wstest', 'agents', '01.overview.md'), '# o')
+  fs.writeFileSync(path.join(home, 'wstest', 'agents', '02.research.md'), '# r')
+  await call(routes, '/pomasa/generation.status?masId=wstest')
   await call(routes, '/pomasa/run.start', 'POST', { masId: 'wstest' })
   // exactly one workspace, titled POMASA, rooted at the pomasa home — never at a
   // MAS dir or unit root — and it holds both sessions
@@ -436,6 +445,50 @@ test('L2 workspaces: one "POMASA" workspace at the pomasa home holds every sessi
   assert.equal(ws.title, 'POMASA')
   assert.equal(ws.cwd, home)
   assert.equal(ws.sessions.length, 2)
+})
+
+test('L2 status machine: session-lifecycle states + single-run guard', async () => {
+  const home = tempHome()
+  const { ctx, routes } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  const mkRegistry = () => {
+    fs.writeFileSync(path.join(home, 'registry.json'), JSON.stringify({
+      version: 1,
+      mas: [
+        { id: 'mas-a', name: 'a' },
+        { id: 'mas-b', name: 'b' },
+        { id: 'mas-c', name: 'c', status: 'generating', lastGenSessionId: 'pomasa-gen-1-000' },
+      ],
+    }))
+  }
+  mkRegistry()
+  // mas-a: generated + run.json completed -> completed
+  writeMas(home, 'mas-a', SINGLE_DESCRIPTOR, { run: { schema_version: 'obv-1', mas_id: 'mas-a', status: 'completed', stages: [] } })
+  // mas-b: generated + run.json mid-run with no live session -> run-failed
+  writeMas(home, 'mas-b', SINGLE_DESCRIPTOR, { run: { schema_version: 'obv-1', mas_id: 'mas-b', status: 'running', stages: [] } })
+  // mas-c: attempted generation, not complete (agents missing), session gone -> gen-failed
+  writeMas(home, 'mas-c', SINGLE_DESCRIPTOR)
+  for (const id of ['mas-a', 'mas-b']) {
+    fs.mkdirSync(path.join(home, id, 'agents'), { recursive: true })
+    fs.writeFileSync(path.join(home, id, 'agents', '01.overview.md'), '# o')
+    fs.writeFileSync(path.join(home, id, 'agents', '02.research.md'), '# r')
+  }
+  const status = async (id) => (await call(routes, '/pomasa/mas.list')).json.mas.find((m) => m.id === id).status
+  assert.equal(await status('mas-a'), 'completed')
+  assert.equal(await status('mas-b'), 'run-failed')
+  assert.equal(await status('mas-c'), 'gen-failed')
+  // single active run: a second run.start is refused while one is live
+  const ok = await call(routes, '/pomasa/run.start', 'POST', { masId: 'mas-a' })
+  assert.equal(ok.json.ok, true)
+  const twice = await call(routes, '/pomasa/run.start', 'POST', { masId: 'mas-a' })
+  assert.equal(twice.json.ok, false)
+  assert.match(twice.json.error, /运行/)
+  // also refused while still generating
+  const g = await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'genning2', topic: 't' })
+  assert.equal(g.json.ok, true)
+  const guarded = await call(routes, '/pomasa/run.start', 'POST', { masId: 'genning2' })
+  assert.equal(guarded.json.ok, false)
+  assert.match(guarded.json.error, /生成/)
 })
 
 test('L2 safety: generate requires topic, rejects dup ids', async () => {

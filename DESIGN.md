@@ -359,6 +359,7 @@ work 段定位单元，契约定容器、index 定实例、文件定内容
 5. 新建表单用 user_input 全量字段（去掉输出格式），留空项由生成器兜底"由 AI 建议"。wiki（BHV-08）不提供。
 6. 会话日志可折叠展开，生成与运行会话同一处理，默认收起，展开含 AI 思考过程（如运行时提供）；日志是追溯面板，不参与状态推导。
 7. （2026-08-29）DSH 集成形态：Studio 拆成左导航右详情的分栏工作台；同一工作台挂在 `conversation.view`（会话内主形态，留 DSH 会话树可见）与 `shell.overlay`（footer 有界冷启动面板）两个槽位。全屏覆盖层（旧 `.ps-app-overlay`）废弃。选 shell.overlay 而非"打开会话跳 tab"是因为 DSH 0.1 对空白会话不渲染 tab 条，冷启动无解。详见 UI.md「DSH 平台要点」。
+8. （2026-08-29）会话与状态模型：每个 MAS 同一时刻只关联一个活会话（并发限制：生成中不得运行，有运行会话不得再起，`run.start` 拒绝并报错）。MAS 状态由会话生命周期 + 文件事实推导，共六态：`generating`（创建会话活着未完成）/ `gen-failed`（创建未完成但会话已死）/ `idle`（就绪可运行）/ `running`（运行会话活着）/ `run-failed`（run.json 停在 running 但会话已死）/ `completed`（run.json 收口完成）。死会话判定：宿主内存会话表（`genSessions`/`runSessions`）+ run.json 终态；宿主重启后以 run.json 为准（重启时持久 registry 状态为兜底）。
 
 ## 附录 A：生成端到端测试结论（2026-08-28）
 
