@@ -103,17 +103,21 @@ export function apply(ctx) {
   // the CLIENT workspaces service: it round-trips via the apiserver to the host
   // registry and persists the workspace.sessionIds membership (poking
   // ctx.workspaceRegistry directly from a plugin is unreliable across profiles).
-  // Runs once per app load, fully best-effort.
-  async function ensurePomasaWorkspaceClient() {
-    let workspacesSvc
-    try { workspacesSvc = ctx.get('workspaces') } catch { return }
-    if (!workspacesSvc || typeof workspacesSvc.create !== 'function') return
+  // The service may not be mounted when the plugin applies, and sessions can
+  // register after load, so this self-retries with backoff (bounded).
+  async function ensurePomasaWorkspaceClient(attempt = 0) {
+    let svc
+    try { svc = ctx.get('workspaces') } catch { svc = null }
+    const retry = () => {
+      if (attempt < 6) setTimeout(() => { ensurePomasaWorkspaceClient(attempt + 1) }, 2500)
+    }
+    if (!svc || typeof svc.create !== 'function') return retry()
     let meta = null
-    try { meta = await (await fetch('/pomasa/meta')).json() } catch { return }
-    if (!meta || !meta.ok || !meta.home) return
+    try { meta = await (await fetch('/pomasa/meta')).json() } catch { return retry() }
+    if (!meta || !meta.ok || !meta.home) return retry()
     const readItems = () => {
       try {
-        const snap = workspacesSvc.list && typeof workspacesSvc.list.getSnapshot === 'function' ? workspacesSvc.list.getSnapshot() : null
+        const snap = svc.list && typeof svc.list.getSnapshot === 'function' ? svc.list.getSnapshot() : null
         return snap && Array.isArray(snap.items) ? snap.items : []
       } catch { return [] }
     }
@@ -124,21 +128,31 @@ export function apply(ctx) {
     let ws = findWs(readItems())
     try {
       if (!ws) {
-        const created = await workspacesSvc.create({ path: meta.home })
+        const created = await svc.create({ path: meta.home })
         ws = (created && created.workspaceId) ? created : findWs(readItems())
       }
-      if (ws && (ws.title || '') !== 'POMASA' && typeof workspacesSvc.rename === 'function') {
+      if (ws && (ws.title || '') !== 'POMASA' && typeof svc.rename === 'function') {
         try {
-          const rn = await workspacesSvc.rename(ws.workspaceId ?? ws.id, 'POMASA')
+          const rn = await svc.rename(ws.workspaceId ?? ws.id, 'POMASA')
           ws = rn?.workspace ?? rn ?? ws
         } catch { /* cosmetic */ }
       }
-    } catch { return }
+    } catch { return retry() }
+    // Attach remains best-effort and silent: DSH only accounts sessions that
+    // are CREATED through the workspace flow (with a workspaceId); a session
+    // created by the plugin host with just a cwd is "not accounted" and DSH
+    // refuses insertSessionBefore for it. The workspace creation above still
+    // gives the sidebar its POMASA folder.
     const wid = ws && (ws.workspaceId ?? ws.id)
-    if (!wid || typeof workspacesSvc.insertSessionBefore !== 'function') return
+    if (!wid || typeof svc.insertSessionBefore !== 'function') return retry()
+    let allOk = true
     for (const sid of meta.sessions || []) {
-      try { await workspacesSvc.insertSessionBefore(wid, sid) } catch { /* stale or dead session */ }
+      try {
+        const r = await svc.insertSessionBefore(wid, sid)
+        if (!(r && r.ok)) allOk = false
+      } catch { allOk = false }
     }
+    if (!allOk) retry()
   }
 
   function applySlots(slots, h2) {

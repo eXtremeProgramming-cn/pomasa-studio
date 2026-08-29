@@ -46,7 +46,9 @@ async function main() {
 
 /* ---------------- helpers ---------------- */
 function tempHome(prefix = 'pomasa-test-') {
-  return fs.mkdtempSync(path.join(os.tmpdir(), prefix))
+  // realpath so it matches what pomasaHome(config) returns (macOS /tmp /var
+  // are symlinked); path-equality assertions in the workspace tests depend on it
+  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)))
 }
 
 const SINGLE_DESCRIPTOR = {
