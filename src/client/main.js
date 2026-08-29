@@ -99,6 +99,48 @@ export function apply(ctx) {
     }, h('span', { className: 'ps-footer-glyph' }, '◫'), 'POMASA Studio')
   }
 
+  // Giving every pomasa session its "POMASA" workspace folder is done through
+  // the CLIENT workspaces service: it round-trips via the apiserver to the host
+  // registry and persists the workspace.sessionIds membership (poking
+  // ctx.workspaceRegistry directly from a plugin is unreliable across profiles).
+  // Runs once per app load, fully best-effort.
+  async function ensurePomasaWorkspaceClient() {
+    let workspacesSvc
+    try { workspacesSvc = ctx.get('workspaces') } catch { return }
+    if (!workspacesSvc || typeof workspacesSvc.create !== 'function') return
+    let meta = null
+    try { meta = await (await fetch('/pomasa/meta')).json() } catch { return }
+    if (!meta || !meta.ok || !meta.home) return
+    const readItems = () => {
+      try {
+        const snap = workspacesSvc.list && typeof workspacesSvc.list.getSnapshot === 'function' ? workspacesSvc.list.getSnapshot() : null
+        return snap && Array.isArray(snap.items) ? snap.items : []
+      } catch { return [] }
+    }
+    const findWs = (items) =>
+      items.find((w) => (w && String(w.path || w.cwd || '') === meta.home))
+      || items.find((w) => (w && (w.title || '') === 'POMASA'))
+      || items.find((w) => (w && String(w.path || w.cwd || '').split('/').pop() === '.pomasa')) || null
+    let ws = findWs(readItems())
+    try {
+      if (!ws) {
+        const created = await workspacesSvc.create({ path: meta.home })
+        ws = (created && created.workspaceId) ? created : findWs(readItems())
+      }
+      if (ws && (ws.title || '') !== 'POMASA' && typeof workspacesSvc.rename === 'function') {
+        try {
+          const rn = await workspacesSvc.rename(ws.workspaceId ?? ws.id, 'POMASA')
+          ws = rn?.workspace ?? rn ?? ws
+        } catch { /* cosmetic */ }
+      }
+    } catch { return }
+    const wid = ws && (ws.workspaceId ?? ws.id)
+    if (!wid || typeof workspacesSvc.insertSessionBefore !== 'function') return
+    for (const sid of meta.sessions || []) {
+      try { await workspacesSvc.insertSessionBefore(wid, sid) } catch { /* stale or dead session */ }
+    }
+  }
+
   function applySlots(slots, h2) {
     // Single entry: the bottom-left launcher toggles the shell.overlay
     // workbench panel. The in-session conversation.view tab was removed — the
@@ -161,4 +203,5 @@ export function apply(ctx) {
   }
 
   applySlots(slots, h)
+  ensurePomasaWorkspaceClient().catch(() => { /* best-effort */ })
 }

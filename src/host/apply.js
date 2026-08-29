@@ -29,6 +29,7 @@ const ROUTES = [
   'generation.log',
   'mas.delete',
   'blueprint.read',
+  'meta',
 ]
 
 // agent.followup expects a typed dsh-session UserMessage (content blocks +
@@ -505,6 +506,18 @@ export function apply(ctx, config = {}) {
       if (sub === '/mas.list') {
         const reg = loadRegistry(config)
         return jsonResponse(res, 200, { ok: true, mas: reg.mas.map(masSummary) })
+      }
+
+      if (sub === '/meta' && req.method === 'GET') {
+        // Workspace metadata for the client-side provisioning: the pomasa home
+        // path plus every tracked session id from the registry, so the client
+        // workspaces service can bind them into the POMASA workspace.
+        const sessions = []
+        for (const m of loadRegistry(config).mas) {
+          if (m.lastGenSessionId) sessions.push(m.lastGenSessionId)
+          for (const sid of Object.values(m.lastRunSessionIds || {})) if (sid) sessions.push(sid)
+        }
+        return jsonResponse(res, 200, { ok: true, home: home(), sessions })
       }
 
       if (sub === '/mas.get' && req.method === 'GET') {

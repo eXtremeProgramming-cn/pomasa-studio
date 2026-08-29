@@ -13,6 +13,7 @@ function createApi() {
     return '?' + keys.map((k) => k + '=' + encodeURIComponent(params[k] == null ? '' : params[k])).join('&')
   }
   return {
+    meta: () => request('/pomasa/meta'),
     listMas: () => request('/pomasa/mas.list'),
     getMas: (masId) => request('/pomasa/mas.get' + q({ masId })),
     generationStatus: (masId) => request('/pomasa/generation.status' + q({ masId })),
