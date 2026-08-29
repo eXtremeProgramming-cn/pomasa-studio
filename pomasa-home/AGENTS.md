@@ -7,14 +7,13 @@
 - ~/.pomasa/skills/<version>/ 是只读的生成器 skill 快照。
 
 ## 上网工具
-如需 MCP 网页工具，建议（按推荐顺序）在 **你自己的工作区 `.mcp.json`** 里配置，POMASA 不随插件安装任何 MCP：
+大模型缺省的搜索和网页获取工具通常比较难用且贵。建议可以安装使用下列MCP工具替代缺省的上网工具：
 
-- **crawl4ai**（网页全文抓取首选）：https://github.com/gigix/crawl4ai-mcp-server
-- **serper**（Google 搜索）：https://serper.dev
-- **oxylabs**（网页抓取系列）：https://oxylabs.io
+- **crawl4ai**（网页全文抓取首选，工具形如 `mcp__crawl4ai__read_url`）：https://github.com/gigix/crawl4ai-mcp-server
+- **serper**（Google 搜索，工具形如 `mcp__serper-search__google_search`）：https://serper.dev
+- **oxylabs**（网页抓取系列，工具形如 `mcp__oxylabs__universal_scraper`、`mcp__oxylabs__ai_search`）：https://oxylabs.io
 
-未配置任何抓取工具时，用 curl 直连抓全文；兜底才用 LLM 自带 web_search / web_fetch。
-搜索摘要不可信，必须抓原网页全文后再引用（BHV-05）。
+**注意**：搜索摘要不可信，必须抓原网页全文后再引用（BHV-05）。
 
 ## 输出
 - 一切产物为 Markdown，按要求维护各阶段 index.json（OBV-01）。
