@@ -100,16 +100,15 @@ export function apply(ctx) {
   }
 
   function applySlots(slots, h2) {
-    slots.inject('conversation.view', () => slots.register(
-    { name: 'conversation.view', id: 'pomasa-studio', order: 30, label: 'POMASA' },
-    (props) => h2(StudioRoot, { sessionId: props.sessionId, key: props.sessionId }),
-  ))
+    // Single entry: the bottom-left launcher toggles the shell.overlay
+    // workbench panel. The in-session conversation.view tab was removed — the
+    // panel is reachable on any screen state, so the tab added nothing.
     slots.inject('sidebar.footer.action', () => slots.register(
-      { name: 'sidebar.footer.action', id: 'pomasa-studio', order: 20, label: 'POMASA' },
+      { name: 'sidebar.footer.action', id: 'pomasa-studio', order: 20, label: 'POMASA Studio' },
       () => h2(PomasaFooterAction, null),
     ))
     slots.inject('shell.overlay', () => slots.register(
-      { name: 'shell.overlay', id: 'pomasa-studio', order: 10, label: 'POMASA' },
+      { name: 'shell.overlay', id: 'pomasa-studio', order: 10, label: 'POMASA Studio' },
       () => h2(WorkbenchPanel, null),
     ))
   }

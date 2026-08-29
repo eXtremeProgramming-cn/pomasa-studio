@@ -57,7 +57,7 @@ L4 浏览器 E2E（Playwright + 真实 dsh web）
 - 预置一个 fixture MAS 进临时 harnessHome 的 `~/.pomasa/`：pomasa.json（single 模式，8 阶段）+ 一个已完成 run（run.json 状态机 + 各阶段 index.json + 若干产物 md）。
 - 直接复用 `/tmp/pomasa-gen-e2e/llm_south`（生成测试产物）手工构造 fixture。
 - Playwright 起临时 profile 的真实 dsh web（无需 LLM key，因为 fixture 不触发新会话），断言：
-  1. 会话区内出现 POMASA tab，与 Chat / Trajectory 并列
+  1. 左下角 `POMASA Studio` 按钮打开工作台面板，MAS 列表渲染 fixture 条目与状态徽记
   2. MAS 列表渲染 fixture 条目与状态徽记
   3. 进入详情：阶段条渲染、run 选择器、产物卡数量与内容（由 index.json 驱动）
   4. 点开产物 → 内容查看器（md 渲染）→ 导出 docx/pdf 按钮存在
@@ -114,7 +114,7 @@ e2e/
 
 ## 5. 运行条件与已知要点
 
-**L4a 的实际运行方式**：工作台现在有两处渲染面——会话内 POMASA tab（需会话有内容才出现）与 footer 的 `shell.overlay` 冷启动面板（任意界面状态可达）。因此**默认的空 profile 也能直接到达工作台**：`ensureSession` 先点 footer 面板（原生 DOM click），再回退到开启会话的 tab 路径。`POMASA_E2E_SRC_HOME=user` 模式仍保留，用于跑用户真实会话数据场景。
+**L4a 的实际运行方式**：工作台唯一入口是 footer 的 `shell.overlay` 面板，任意界面状态可达（包括无会话的空白 profile），所以**默认的空 profile 就能直接到达工作台**：`ensureSession` 点 footer 面板（原生 DOM click）。`POMASA_E2E_SRC_HOME=user` 模式仍保留，用于跑用户真实会话数据场景。
 
 **冷环境启动的前置**：DSH 0.1 空 profile 启动会连弹两个顶层模态——Internal Testing Notice（Continue）与 Add an API key（Configure later），其 mask z-index 1000 冻结一切点击。`e2e/specs/helpers.ts` 的 `ensureSession` 开局先依次关掉它们。
 

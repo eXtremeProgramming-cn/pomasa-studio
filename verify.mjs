@@ -599,7 +599,7 @@ test('L2 client bundle: loads and registers conversation.view + sidebar entry', 
             if (name === 'react') return React
             throw new Error('unexpected require: ' + name)
           })
-          const expectedSlots = ['conversation.view', 'sidebar.footer.action', 'shell.overlay']
+          const expectedSlots = ['sidebar.footer.action', 'shell.overlay']
           const vc = {
             inject(slotName, factory) {
               assert.equal(slotName, expectedSlots.shift())
@@ -619,11 +619,11 @@ test('L2 client bundle: loads and registers conversation.view + sidebar entry', 
   vm.createContext(sandbox)
   vm.runInContext(src, sandbox)
   assert.deepEqual(loaded, ['pomasa-studio'])
-  assert.equal(registrations.length, 3)
+  assert.equal(registrations.length, 2)
   assert.equal(registrations[0].id, 'pomasa-studio')
-  assert.equal(registrations[0].name, 'conversation.view')
   assert.ok(registrations.some((r) => r.name === 'sidebar.footer.action'))
   assert.ok(registrations.some((r) => r.name === 'shell.overlay'))
+  assert.ok(!registrations.some((r) => r.name === 'conversation.view'), 'the in-session tab was removed')
 })
 
 async function findPnpmReact() {

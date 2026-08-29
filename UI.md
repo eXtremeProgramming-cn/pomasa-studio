@@ -53,22 +53,21 @@ PageHeader、Card、Button（primary / ghost）、Badge、StatusDot（等待/运
 
 ## 最终界面形态（2026-08-29 定稿）
 
-### 两处渲染面（同一套 Studio 工作台）
+### 唯一入口：左下角「POMASA Studio」按钮 → `shell.overlay` 工作台面板
 
-Studio 是分栏工作台：左栏 `.ps-nav` MAS 导航（状态点、单元数、上次运行、新建/删除），右栏 `.ps-main` 详情（`.ps-info-bar` 信息条、运行控制、`.ps-stages` 阶段条、`.ps-panel` 产物卡+查看器、蓝图弹窗）。新建表单也在右栏内（非弹窗非整页）。同一 `StudioRoot` 挂在两个槽位：
+Studio 是分栏工作台：左栏 `.ps-nav` MAS 导航（状态点、单元数、上次运行、新建/删除），右栏 `.ps-main` 详情（`.ps-info-bar` 信息条、运行控制、`.ps-stages` 阶段条、`.ps-panel` 产物卡+查看器、蓝图弹窗）。新建表单也在右栏内（非弹窗非整页）。`StudioRoot` 只挂一个槽位：
 
-1. **`conversation.view` tab**（id `pomasa-studio`, order 30）：会话内、占正文区，左侧 DSH 会话树始终在屏，顶部 tab 条一键切回 Chat。这是"回普通会话看操作过程"的主路径。
-2. **`shell.overlay` 冷启动面板**（id `pomasa-studio`, order 10）：footer 底部按钮开关。**关键平台约束**：DSH 0.1 对空白会话（`blank && composerPhase==='blank'`）不渲染会话头部与 view ring，故 tab 只在"有对话内容的会话"里出现；面板补足冷启动/空白态。面板是**有界**的：`.ps-shell-root` 全帧 click-through（pointer-events:none），左 264px `.ps-shell-nav` 透空保持侧栏可见可点（侧栏宽 clamp(264,420)，收起为 56px rail），右侧 `.ps-shell-panel` 才 pointer-events:auto。不遮挡、不占屏，任意界面状态可达。
+- **`shell.overlay` 冷启动面板**（id `pomasa-studio`, order 10）：footer 底部按钮开关，任意界面状态可达（含 DSH 0.1 不渲染会话头部的空白会话）。面板是**有界**的：`.ps-shell-root` 全帧 click-through（pointer-events:none），左 264px `.ps-shell-nav` 透空保持侧栏可见可点（侧栏宽 clamp(264,420)，收起为 56px rail），右侧 `.ps-shell-panel` 才 pointer-events:auto。不遮挡、不占屏。
 
-footer 按钮文案为 `POMASA Studio`，用 DSH 标准按钮 token 做成真按钮：收起时 `--dsw-alias-button-floating-fill` 浮起式实心底 + 前置小图标（读起来是按钮不是文字行），打开时 `--dsw-alias-state-business-primary` 强调色实心 + `brand-primary-invert` 白字（与活跃 tab 同款强调色），`aria-expanded` 同步，hover tooltip「打开/收起 POMASA Studio」。`sidebar.footer.action`（order 20）只做面板开关，不调 workspaces/sessions 服务（早期尝试"自动开会话+预置 view"，因空白会话门控而放弃，见下）。
+会话内的 `conversation.view` POMASA tab **已移除**（2026-08-29）：面板已覆盖任意状态，tab 无增益，且会话树在面板左侧始终可见。
+
+footer 按钮文案为 `POMASA Studio`，用 DSH 标准按钮 token 做成真按钮：收起时 `--dsw-alias-button-floating-fill` 浮起式实心底 + 前置小图标（读起来是按钮不是文字行），打开时 `--dsw-alias-state-business-primary` 强调色实心 + `brand-primary-invert` 白字（与活跃 tab 同款强调色），`aria-expanded` 同步，hover tooltip「打开/收起 POMASA Studio」。`sidebar.footer.action`（order 20）只做面板开关，不调 workspaces/sessions 服务。
 
 **创建入口**：`新建 MAS` 按钮**永远在左栏导航头**，右栏任何空态都不放按钮（零 MAS 时右栏是纯引导 hero，指向左栏按钮）。全屏因此只有一处创建入口，无重复。
 
-### 工作台激活时隐藏输入区
+### 工作台与输入区
 
-对齐 dsh-editor 先例，POMASA tab 活跃时隐藏 composer：
-`[data-conversation-scroll]:has(.ps-workbench) > [data-composer-seat] { display:none !important; }`
-（壳层面板在 scroll 容器外，`.ps-workbench` 不会误触该规则。）
+面板有界盖在主内容区，composer 天然被面板盖住，无需隐藏规则。（早期为会话内 tab 加的 `[data-conversation-scroll]:has(.ps-workbench) > [data-composer-seat]{display:none}` 规则随 tab 移除而不再触发，保留无妨。）
 
 ### DSH 平台要点（踩坑记录，供后续开发）
 

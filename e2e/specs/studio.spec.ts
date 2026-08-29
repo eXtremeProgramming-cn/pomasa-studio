@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { openPomasaTab } from './helpers'
 
-test('POMASA tab opens the Studio list', async ({ page }) => {
+test('POMASA Studio opens the workbench', async ({ page }) => {
   await openPomasaTab(page)
   const navHead = page.locator('.ps-nav .ps-nav-title .name')
   await expect(navHead).toBeVisible({ timeout: 15000 })
