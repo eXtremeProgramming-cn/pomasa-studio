@@ -36,11 +36,9 @@ function MasList(props) {
     h('div', { className: 'ps-nav-head' },
       h('div', { className: 'ps-nav-title' },
         h('span', { className: 'name' }, 'POMASA Studio'),
-        // one create entry at a time: the hero owns it while the list is empty,
-        // the nav head owns it once MASes exist
-        mas !== null && mas.length > 0
-          ? h(psBtn, { primary: true, style: { padding: '5px 12px', fontSize: 14 }, onClick: props.onCreate }, '新建 MAS')
-          : null,
+        // the create entry lives here, on the left — the right pane never
+        // carries its own "新建 MAS" button
+        h(psBtn, { primary: true, style: { padding: '5px 12px', fontSize: 13.5 }, onClick: props.onCreate }, '新建 MAS'),
       ),
       h('div', { className: 'ps-sub' }, '全部研究 MAS 的全局工作台'),
     ),

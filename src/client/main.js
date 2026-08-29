@@ -136,12 +136,12 @@ export function apply(ctx) {
     } else if (selectedId) {
       right = h(MasDetail, { api, masId: selectedId })
     } else if (masCount === 0) {
-      // first open, nothing exists yet: a single clear call-to-action hero
+      // first open, nothing exists yet: an onboarding hero — the create action
+      // lives only in the left nav head
       right = h('div', { className: 'ps-empty-hero' },
         h('div', { className: 'ps-hero-glyph' }, '◌'),
         h('h2', null, '还没有研究系统'),
-        h('p', null, '新建一个 MAS，让 POMASA 生成器根据你填写的需求，生成一个自包含的研究多代理系统——agent 蓝图、参考资料、运行状态都由文件驱动。'),
-        h(psBtn, { primary: true, style: { padding: '9px 22px', fontSize: 15 }, onClick: () => setMode('create') }, '新建 MAS'),
+        h('p', null, '从左侧点击「新建 MAS」，让 POMASA 生成器根据你填写的需求，生成一个自包含的研究多代理系统——agent 蓝图、参考资料、运行状态都由文件驱动。'),
         h('span', { className: 'ps-caption' }, '留空项由 AI 建议'),
       )
     } else {

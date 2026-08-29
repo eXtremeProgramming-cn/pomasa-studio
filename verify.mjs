@@ -534,12 +534,10 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   const listHtml = react.SSR.renderToString(react.React.createElement(ps.MasList, { api, onCreate: () => {}, onOpen: () => {}, onListChange: () => {} }))
   assert.match(listHtml, /POMASA Studio/)
   assert.match(listHtml, /全部研究 MAS 的全局工作台/)
-  // before the async list resolves the initial render must be quiet — no create
-  // button in the nav head (the right-pane hero owns that while the list is
-  // empty), only the loading note
+  // the create entry always lives in the nav head (left), never in the right pane
+  assert.match(listHtml, /新建 MAS/)
+  assert.match(listHtml, /<button/)
   assert.match(listHtml, /加载中/)
-  assert.doesNotMatch(listHtml, /新建 MAS/)
-  assert.doesNotMatch(listHtml, /<button/)
 
   const createHtml = react.SSR.renderToString(react.React.createElement(ps.CreateMas, { api, onCancel: () => {}, onDone: () => {} }))
   assert.match(createHtml, /研究主题与核心问题/)
