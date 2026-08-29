@@ -719,6 +719,17 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   assert.equal((dupHtml.match(/<div class="ps-art-title">POMASA 初始概览<\/div>/g) || []).length, 1)
   assert.equal((dupHtml.match(/<div class="ps-art-title">问题清单<\/div>/g) || []).length, 1)
   assert.equal((dupHtml.match(/class="ps-card ps-art"/g) || []).length, 2)
+  // several index rows naming the SAME physical file dedupe to one card
+  const sameFile = [
+    { artifact: 'sources', title: '素材', indexPath: '01.scan/index.json', index: [
+      { id: 'a', title: '源 A', file: 'sources_1.md' },
+      { id: 'b', title: '源 B', file: 'sources_1.md' },
+    ] },
+  ]
+  const sameHtml = react.SSR.renderToString(react.React.createElement('div', { key: 's' },
+    ps.stageContractCards({ status: 'completed', contracts: sameFile }, null, {}, () => {}),
+  ))
+  assert.equal((sameHtml.match(/class="ps-card ps-art"/g) || []).length, 1)
 })
 
 test('L2 lifecycle: mas.delete removes dir, registry, and active sessions', async () => {

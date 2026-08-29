@@ -470,19 +470,20 @@ function stageContractCards(stage, unit, api, openArtifact, artifact) {
     const entries = Array.isArray(c.index) ? c.index : []
     for (const e of entries || []) {
       if (!e || typeof e !== 'object') continue
-      // Several contracts may share one index.json (the generator emits both a
-      // summary and a questions contract over the same file); dedupe entries so
-      // each artifact renders exactly once.
-      const key = String(c.indexPath || '') + '|' + String(e.id || e.file || e.path || JSON.stringify(e))
-      if (seen.has(key)) continue
-      seen.add(key)
       // Attribute an entry to the contract whose artifact id matches its id
       // when one exists; otherwise to the contract that listed it first.
       const matched = e.id != null
         ? stage.contracts.find((x) => x.id != null && String(x.id) === String(e.id))
         : undefined
       const owner = matched || c
-      all.push({ contract: owner.id, contractTitle: owner.title, entry: e, path: resolveArtifactPath(owner, e) })
+      const path = resolveArtifactPath(owner, e)
+      // Dedupe by the RESOLVED physical file: an artifact is one thing on disk,
+      // however many index rows point at it (a shared index.json, or several
+      // rows all naming the same file like sources_1.md). One file => one card,
+      // and the opened-highlight compares paths, so only that card lights up.
+      if (seen.has(path) || !path) continue
+      seen.add(path)
+      all.push({ contract: owner.id, contractTitle: owner.title, entry: e, path })
     }
   }
   if (stage.status !== 'completed' && !all.length) {
