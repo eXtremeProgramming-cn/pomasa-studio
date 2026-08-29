@@ -7,10 +7,13 @@
 - ~/.pomasa/skills/<version>/ 是只读的生成器 skill 快照。
 
 ## 上网工具
-- crawl4ai（已随 POMASA 安装，工具名为 mcp__crawl4ai__*）：网页全文抓取的首选，抓不到再降级。
-- 其它已配置的抓取工具（serper 等收费服务）：如主动配置了再使用，未配置则忽略。
-- 未配置任何抓取工具时，用 curl 直连抓全文。
-- 兜底才用 LLM 自带 web_search / web_fetch。
+如需 MCP 网页工具，建议（按推荐顺序）在 **你自己的工作区 `.mcp.json`** 里配置，POMASA 不随插件安装任何 MCP：
+
+- **crawl4ai**（网页全文抓取首选）：https://github.com/gigix/crawl4ai-mcp-server
+- **serper**（Google 搜索）：https://serper.dev
+- **oxylabs**（网页抓取系列）：https://oxylabs.io
+
+未配置任何抓取工具时，用 curl 直连抓全文；兜底才用 LLM 自带 web_search / web_fetch。
 搜索摘要不可信，必须抓原网页全文后再引用（BHV-05）。
 
 ## 输出
