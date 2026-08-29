@@ -291,6 +291,7 @@ function mockCtx() {
         id: sessionId,
         meta,
         agentOptions,
+        status: 'running', // DSH agent status — the authoritative liveness signal
         calls: [],
         followup(m) { this.calls.push(['followup', m]) },
         cancel(w) { this.calls.push(['cancel', w]) },
@@ -298,6 +299,7 @@ function mockCtx() {
       agentsMap.set(sessionId, agent)
       return { agent }
     },
+    get: (id) => agentsMap.get(id) || null,
   }
   // Mirrors the real host registry shape: resolveByPath/create return plain
   // workspace VIEWS, while get(id) returns the registry OBJECT that carries the
@@ -485,7 +487,7 @@ test('L2 workspaces: one "POMASA" workspace at the pomasa home holds every sessi
 
 test('L2 status machine: session-lifecycle states + single-run guard', async () => {
   const home = tempHome()
-  const { ctx, routes } = mockCtx()
+  const { ctx, routes, agents } = mockCtx()
   apply(ctx, { pomasaHome: home })
   const mkRegistry = () => {
     fs.writeFileSync(path.join(home, 'registry.json'), JSON.stringify({
@@ -536,6 +538,22 @@ test('L2 status machine: session-lifecycle states + single-run guard', async () 
   assert.match(multiStart.json.error, /一个单元|一个运行/)
   const oneStart = await call(routes, '/pomasa/run.start', 'POST', { masId: 'idx', units: ['india'] })
   assert.equal(oneStart.json.ok, true)
+
+  // authoritative liveness: DSH's agent registry decides running, not run.json
+  assert.equal(await status('mas-a'), 'running') // run agent alive (mock status running)
+  const runAgent = [...agents.values()].find((a) => String(a.id).startsWith('pomasa-run-'))
+  assert.ok(runAgent)
+  runAgent.status = 'ended' // agent died -> completed run record stays completed
+  assert.equal(await status('mas-a'), 'completed')
+  // a mid-run run.json whose agent is gone (never alive in this host) -> run-failed
+  const deadReg = JSON.parse(fs.readFileSync(path.join(home, 'registry.json'), 'utf8'))
+  deadReg.mas.push({ id: 'mas-d', name: 'd', lastRunSessionIds: { single: 'pomasa-run-gone' } })
+  fs.writeFileSync(path.join(home, 'registry.json'), JSON.stringify(deadReg))
+  writeMas(home, 'mas-d', SINGLE_DESCRIPTOR, { run: { schema_version: 'obv-1', mas_id: 'mas-d', status: 'running', stages: [] } })
+  fs.mkdirSync(path.join(home, 'mas-d', 'agents'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'mas-d', 'agents', '01.overview.md'), '# o')
+  fs.writeFileSync(path.join(home, 'mas-d', 'agents', '02.research.md'), '# r')
+  assert.equal(await status('mas-d'), 'run-failed')
 })
 
 test('L2 generated: generator descriptor shape (bare agents + prose orchestrator) completes', async () => {

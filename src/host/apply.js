@@ -308,6 +308,27 @@ export function apply(ctx, config = {}) {
     }
   }
 
+  /**
+   * Ask DSH whether a session's agent is actually running — the same signal the
+   * apiserver uses to summarize a session (agent?.status === 'running'). Our
+   * in-memory runSessions map can be stale (a session may die without an
+   * agent/disposed: process restart, interruption) and run.json can be left
+   * "running" by an orchestrator that never closed it. Returns true/false when
+   * the agents registry can answer, null when it can't (callers fall back to
+   * the in-memory signal).
+   */
+  function isAgentAlive(sid) {
+    if (!sid) return null
+    try {
+      const agents = ctx.get?.('agents')
+      if (agents && typeof agents.get === 'function') {
+        const a = agents.get(sid)
+        return !!(a && a.status === 'running')
+      }
+    } catch { /* ignore */ }
+    return null
+  }
+
   function masSummary(m) {
     const live = dispatch(m.id)
     const root = masDir(home(), m.id)
@@ -322,16 +343,21 @@ export function apply(ctx, config = {}) {
       // already died) -> gen-failed; never attempted -> idle
       const attempted = !!(m.lastGenSessionId) || m.status === 'generating' || m.status === 'failed'
       status = attempted ? 'gen-failed' : 'idle'
-    } else if (live.run) {
-      status = 'running'
     } else {
-      // generated; classify from the persistent run record — if run.json is
-      // mid-run but no run session is alive any more, the session died
-      const rf = runFinalState(root, descriptor)
-      if (rf === 'failed') status = 'run-failed'
-      else if (rf === 'running') status = 'run-failed'
-      else if (rf === 'completed') status = 'completed'
-      else status = 'idle'
+      // generated. "running" requires DSH to still have the run session's agent
+      // live — the in-memory map and run.json can both be stale after an
+      // interruption, so the agents registry is authoritative.
+      const runSid = Object.values(m.lastRunSessionIds || {})[0] || null
+      const alive = runSid ? isAgentAlive(runSid) : null
+      if (alive === true || (alive === null && live.run)) {
+        status = 'running'
+      } else {
+        const rf = runFinalState(root, descriptor)
+        if (rf === 'failed') status = 'run-failed'
+        else if (rf === 'running') status = 'run-failed'
+        else if (rf === 'completed') status = 'completed'
+        else status = 'idle'
+      }
     }
     let unitCount = 0
     try {
@@ -582,6 +608,16 @@ export function apply(ctx, config = {}) {
         const descriptor = loadDescriptor(masDir(home(), masId))
         if (!descriptor) return jsonResponse(res, 200, { ok: true, generated: false, stages: [] })
         const st = unitState(config, descriptor, masId, q.unit || null)
+        // A stale run.json may still say "running" after its session died; the
+        // detail view should reflect the authoritative agent liveness.
+        if (st && st.run && st.run.status === 'running') {
+          const reg = loadRegistry(config)
+          const m = reg.mas.find((x) => x.id === masId)
+          const ur = m && m.lastRunSessionIds || {}
+          const key = descriptor.work.mode === 'multi' ? (q.unit || null) : 'single'
+          const runSid = key ? (ur[key] || null) : (Object.values(ur)[0] || null)
+          if (runSid && isAgentAlive(runSid) === false) st.run.status = 'failed'
+        }
         return jsonResponse(res, 200, { ok: true, generated: true, ...st })
       }
 
