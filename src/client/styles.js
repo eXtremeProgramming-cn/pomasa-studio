@@ -118,9 +118,11 @@ export const CSS = `
 .ps-stage-count { font-size: 12px; color: var(--dsw-alias-label-caption); }
 
 /* ---------- footer action / shell panel ---------- */
-.ps-footer-action { cursor: pointer; padding: 8px 12px; font-size: 14px; font-weight: 600; color: var(--dsw-alias-label-primary); display: flex; align-items: center; gap: 8px; transition: background 150ms, color 150ms; border-radius: 8px; margin: 2px 8px; white-space: nowrap; }
+.ps-footer-action { cursor: pointer; padding: 8px 12px; font-size: 14px; font-weight: 600; color: var(--dsw-alias-label-primary); display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 150ms, color 150ms; border-radius: 8px; margin: 2px 8px; white-space: nowrap; }
 .ps-footer-action:hover { background: var(--dsw-alias-interactive-bg-hover); }
-.ps-footer-action.on { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-brand-primary); }
+/* clear open/closed affordance: filled brand pill when the workbench panel is up */
+.ps-footer-action.on { background: var(--dsw-alias-brand-primary); color: #fff; }
+.ps-footer-action.on:hover { background: var(--dsw-alias-button-primary-hover, var(--dsw-alias-brand-primary)); filter: brightness(1.06); }
 
 /* shell.overlay workbench panel — bounded to the center column, the DSH
    sidebar stays visible and clickable underneath (click-through root). */

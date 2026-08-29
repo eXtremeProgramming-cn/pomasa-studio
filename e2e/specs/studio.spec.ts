@@ -3,7 +3,9 @@ import { openPomasaTab } from './helpers'
 
 test('POMASA tab opens the Studio list', async ({ page }) => {
   await openPomasaTab(page)
-  await expect(page.getByText('POMASA Studio')).toBeVisible({ timeout: 15000 })
+  const navHead = page.locator('.ps-nav .ps-nav-title .name')
+  await expect(navHead).toBeVisible({ timeout: 15000 })
+  await expect(navHead).toHaveText('POMASA Studio')
 })
 
 test('MAS list shows the fixture mas and opens detail', async ({ page }) => {

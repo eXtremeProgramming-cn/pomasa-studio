@@ -41,7 +41,7 @@ export async function ensureSession(page: Page): Promise<void> {
   //    node directly so no overlay interception can swallow the event.
   const clicked = await page.evaluate(() => {
     const el = Array.from(document.querySelectorAll('.ps-footer-action')).find(
-      (e) => e.textContent && e.textContent.trim() === 'POMASA')
+      (e) => e.textContent && e.textContent.trim() === 'POMASA Studio')
     if (el) { (el as HTMLElement).click(); return true }
     return false
   }).catch(() => false)

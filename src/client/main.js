@@ -91,7 +91,12 @@ export function apply(ctx) {
 
   function PomasaFooterAction() {
     const open = usePanelOpen()
-    return h('div', { className: 'ps-footer-action' + (open ? ' on' : ''), onClick: () => panel.toggle() }, 'POMASA')
+    return h('div', {
+      className: 'ps-footer-action' + (open ? ' on' : ''),
+      onClick: () => panel.toggle(),
+      title: open ? '收起 POMASA Studio' : '打开 POMASA Studio',
+      'aria-expanded': open ? 'true' : 'false',
+    }, 'POMASA Studio')
   }
 
   function applySlots(slots, h2) {
