@@ -106,6 +106,13 @@ function CreateMas(props) {
         setError('未找到生成会话服务（agentLoop）。系统已创建，请回列表后台手动生成。')
         return
       }
+      // direction-1: generation session is created by the client through the
+      // workspace flow and driven by sessions.prompt, so the MAS shows under
+      // the POMASA workspace
+      if (r.generation === 'client' && props.onGeneration) {
+        const d = await props.onGeneration(r.masId, r.prompt)
+        if (!d.ok) setError(d.error || '生成会话启动失败')
+      }
       props.onDone(r.masId)
     } catch (e) {
       setError(String(e && e.message || e))
@@ -236,16 +243,16 @@ function MasDetail(props) {
     }
   }
 
-  const startRun = async (targets) => {
+  const startRun = async (key) => {
     setBusy(true)
     setNotice(null)
     try {
-      const r = await api.startRun(masId, targets)
-      if (!r.ok) setNotice({ kind: 'err', text: r.error || '启动失败' })
-      else {
-        setNotice({ kind: 'ok', text: '运行已启动' + (targets && targets.length ? '（' + targets.length + ' 个单元）' : '') })
-        refresh()
-      }
+      // prepare on the host, then drive the run session through the client
+      const r = await api.startRun(masId, key)
+      if (!r.ok) { setNotice({ kind: 'err', text: r.error || '启动失败' }); return }
+      const d = props.onRun ? await props.onRun(masId, r.unitKey, r.prompt) : { ok: false, error: '会话驱动不可用' }
+      if (d.ok) { setNotice({ kind: 'ok', text: '运行已启动' }); refresh() }
+      else setNotice({ kind: 'err', text: d.error || '启动失败' })
     } catch (e) { setNotice({ kind: 'err', text: String(e && e.message || e) }) }
     finally { setBusy(false) }
   }
@@ -312,7 +319,8 @@ function MasDetail(props) {
               style: { borderColor: 'var(--dsw-alias-state-error-primary)', color: 'var(--dsw-alias-state-error-primary)' },
               onClick: () => {
                 if (window.confirm('确定要取消当前运行会话吗？已产生的产物会保留。')) {
-                  api.cancelRun(masId, unit).then(() => refresh())
+                  if (props.onCancelRun) props.onCancelRun(masId, unit).then(() => refresh())
+                  else refresh()
                 }
               },
             }, '取消运行')
@@ -327,7 +335,7 @@ function MasDetail(props) {
                 // currently selected unit (never a batch); single runs the MAS
                 if (descriptor && descriptor.work && descriptor.work.mode === 'multi') {
                   const key = unit || ((units.find((u) => !u.run) || {}).key)
-                  if (key) startRun([key])
+                  if (key) startRun(key)
                 } else {
                   startRun(null)
                 }
@@ -344,7 +352,7 @@ function MasDetail(props) {
           h('span', null, str(u.key)),
           h('span', { className: 'spacer', style: { flex: 1 } }),
           u.run ? psBadge('completed', '已运行') : u.planned ? psBadge('generating', '已规划未运行') : psBadge('idle', '未运行'),
-          h(psBtn, { ghost: true, style: { padding: '3px 10px' }, onClick: (e) => { e.stopPropagation(); startRun([u.key]) } }, '运行'),
+          h(psBtn, { ghost: true, style: { padding: '3px 10px' }, onClick: (e) => { e.stopPropagation(); startRun(u.key) } }, '运行'),
         ),
       )),
     ) : null,

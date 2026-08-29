@@ -368,7 +368,7 @@ test('L1 pomasa home: template is copied in, but existing files are kept', () =>
   assert.equal(fs.readFileSync(path.join(home, 'AGENTS.md'), 'utf8'), '# 我的自定义约定\n')
 })
 
-test('L2 lifecycle: create -> generating -> completed', async () => {
+test('L2 lifecycle: create prepares a prompt; /record drives generating; completion flips to completed', async () => {
   const home = tempHome()
   const { ctx, routes, agents } = mockCtx()
   apply(ctx, { pomasaHome: home })
@@ -377,30 +377,31 @@ test('L2 lifecycle: create -> generating -> completed', async () => {
   assert.equal(created.code, 200)
   assert.equal(created.json.ok, true)
   assert.equal(created.json.masId, 'demo2')
-  assert.equal(created.json.generation, 'session')
-  const genAgent = [...agents.values()].find((a) => String(a.id).startsWith('pomasa-gen-'))
-  assert.ok(genAgent)
-  assert.equal(genAgent.calls[0][0], 'followup')
-  assert.match(genAgent.calls[0][1].content[0].text, /SKILL.md/)
-  assert.match(genAgent.calls[0][1].content[0].text, /demo2/)
-  // every session's cwd is the pomasa home — the DSH workspace, not the MAS dir
-  assert.equal(genAgent.meta.cwd, home)
+  // host only prepares the generation: no agent session is created — the CLIENT
+  // creates the workspace-accounted session and drives it by sessions.prompt
+  assert.equal(created.json.generation, 'client')
+  assert.match(created.json.prompt, /SKILL.md/)
+  assert.match(created.json.prompt, /demo2/)
+  assert.equal([...agents.values()].filter((a) => String(a.id).startsWith('pomasa-gen-')).length, 0, 'no host agent session')
   // user_input.md written, markdown only
   const ui = fs.readFileSync(path.join(home, 'demo2', 'user_input.md'), 'utf8')
   assert.match(ui, /Research Topic/)
-
+  // the client records the generation session; a live agent => generating
+  await call(routes, '/pomasa/record', 'POST', { masId: 'demo2', kind: 'gen', sessionId: 'gen-1' })
+  agents.set('gen-1', { id: 'gen-1', status: 'running' })
   let st = await call(routes, '/pomasa/generation.status?masId=demo2')
   assert.equal(st.json.status, 'generating')
-
-  // simulate generation finishing: pomasa.json appears
+  // agent ends without completing => failed
+  agents.get('gen-1').status = 'ended'
+  st = await call(routes, '/pomasa/generation.status?masId=demo2')
+  assert.equal(st.json.status, 'failed')
+  // generation completes on disk
   fs.writeFileSync(path.join(home, 'demo2', 'pomasa.json'), JSON.stringify(SINGLE_DESCRIPTOR))
-  // completion also requires the referenced agent blueprints to exist
   fs.mkdirSync(path.join(home, 'demo2', 'agents'), { recursive: true })
   fs.writeFileSync(path.join(home, 'demo2', 'agents', '01.overview.md'), '# o')
   fs.writeFileSync(path.join(home, 'demo2', 'agents', '02.research.md'), '# r')
   st = await call(routes, '/pomasa/generation.status?masId=demo2')
   assert.equal(st.json.status, 'completed')
-
   const list = await call(routes, '/pomasa/mas.list')
   const demo2 = list.json.mas.find((m) => m.id === 'demo2')
   assert.equal(demo2.status, 'idle')
@@ -434,77 +435,71 @@ test('L2 lifecycle: unit state + artifact read + traversal guard', async () => {
   assert.equal(missing.code, 404)
 })
 
-test('L2 lifecycle: run.start spawns sessions, intervene/cancel route', async () => {
+test('L2 lifecycle: run.start prepares the prompt; /record tracks the run session', async () => {
   const home = tempHome()
   const { ctx, routes, agents } = mockCtx()
   apply(ctx, { pomasaHome: home })
   writeMas(home, 'demo', SINGLE_DESCRIPTOR)
+  fs.mkdirSync(path.join(home, 'demo', 'agents'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '01.overview.md'), '# o')
+  fs.writeFileSync(path.join(home, 'demo', 'agents', '02.research.md'), '# r')
 
   const bad = await call(routes, '/pomasa/run.start', 'POST', { masId: 'nosuch' })
   assert.equal(bad.json.ok, false)
 
   const started = await call(routes, '/pomasa/run.start', 'POST', { masId: 'demo' })
   assert.equal(started.json.ok, true)
-  assert.deepEqual(started.json.units, [null])
-  const runAgent = [...agents.values()].find((a) => String(a.id).startsWith('pomasa-run-'))
-  assert.ok(runAgent)
-  assert.ok(runAgent)
-  assert.match(runAgent.calls[0][1].content[0].text, /00\.orchestrator\.md/)
-  assert.match(runAgent.calls[0][1].content[0].text, /workspace/)
-  // run sessions live in the ONE pomasa workspace too
-  assert.equal(runAgent.meta.cwd, home)
-
-  const iv = await call(routes, '/pomasa/run.intervene', 'POST', { masId: 'demo', unit: null, message: '再搜一下背景' })
-  assert.equal(iv.json.ok, true)
-  assert.equal(runAgent.calls[1][1].content[0].text, '再搜一下背景')
-
-  const can = await call(routes, '/pomasa/run.cancel', 'POST', { masId: 'demo', unit: null })
-  assert.equal(can.json.ok, true)
-  assert.equal(runAgent.calls[2][0], 'cancel')
+  assert.equal(started.json.unitKey, null)
+  assert.match(started.json.prompt, /00\.orchestrator\.md/)
+  assert.match(started.json.prompt, /workspace/)
+  // no host agent session is created
+  assert.equal([...agents.values()].filter((a) => String(a.id).startsWith('pomasa-run-')).length, 0, 'no host run agent')
+  // the client records the run session; a live agent => running
+  await call(routes, '/pomasa/record', 'POST', { masId: 'demo', kind: 'run', unit: 'single', sessionId: 'run-1' })
+  agents.set('run-1', { id: 'run-1', status: 'running' })
+  const list1 = await call(routes, '/pomasa/mas.list')
+  assert.equal(list1.json.mas.find((m) => m.id === 'demo').status, 'running')
+  // agent dies with no run.json written => the record alone leaves it idle
+  agents.get('run-1').status = 'ended'
+  const list2 = await call(routes, '/pomasa/mas.list')
+  assert.equal(list2.json.mas.find((m) => m.id === 'demo').status, 'idle')
 })
 
-test('L2 workspaces: one "POMASA" workspace at the pomasa home holds every session', async () => {
+test('L2 workspaces: the POMASA workspace is provisioned; /record stores run sessions', async () => {
   const home = tempHome()
   const { ctx, routes, workspaces } = mockCtx()
   apply(ctx, { pomasaHome: home })
-  // generation session (mas.create) + run session (run.start, single mode)
-  await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'wstest', topic: 't' })
-  // finish generation so the single-active-session guard frees the run slot
-  fs.mkdirSync(path.join(home, 'wstest', 'agents'), { recursive: true })
-  fs.writeFileSync(path.join(home, 'wstest', 'pomasa.json'), JSON.stringify(SINGLE_DESCRIPTOR))
-  fs.writeFileSync(path.join(home, 'wstest', 'agents', '01.overview.md'), '# o')
-  fs.writeFileSync(path.join(home, 'wstest', 'agents', '02.research.md'), '# r')
-  await call(routes, '/pomasa/generation.status?masId=wstest')
-  await call(routes, '/pomasa/run.start', 'POST', { masId: 'wstest' })
-  // exactly one workspace, titled POMASA, rooted at the pomasa home — never at a
-  // MAS dir or unit root — and it holds both sessions
+  await new Promise((r) => setTimeout(r, 60)) // ensurePomasaWorkspace provisions asynchronously
   assert.equal(workspaces.size, 1)
   const [ws] = [...workspaces.values()]
   assert.equal(ws.title, 'POMASA')
   assert.equal(ws.cwd, home)
-  assert.equal(ws.sessions.length, 2)
+  fs.mkdirSync(path.join(home, 'wstest'), { recursive: true })
+  await call(routes, '/pomasa/record', 'POST', { masId: 'wstest', kind: 'run', unit: 'single', sessionId: 'run-1' })
+  await call(routes, '/pomasa/record', 'POST', { masId: 'wstest', kind: 'gen', sessionId: 'gen-1' })
+  const reg = JSON.parse(fs.readFileSync(path.join(home, 'registry.json'), 'utf8'))
+  const m = reg.mas.find((x) => x.id === 'wstest')
+  assert.equal(m.lastRunSessionIds.single, 'run-1')
+  assert.equal(m.lastGenSessionId, 'gen-1')
 })
 
 test('L2 status machine: session-lifecycle states + single-run guard', async () => {
   const home = tempHome()
   const { ctx, routes, agents } = mockCtx()
   apply(ctx, { pomasaHome: home })
-  const mkRegistry = () => {
-    fs.writeFileSync(path.join(home, 'registry.json'), JSON.stringify({
-      version: 1,
-      mas: [
-        { id: 'mas-a', name: 'a' },
-        { id: 'mas-b', name: 'b' },
-        { id: 'mas-c', name: 'c', status: 'generating', lastGenSessionId: 'pomasa-gen-1-000' },
-      ],
-    }))
-  }
-  mkRegistry()
+  fs.writeFileSync(path.join(home, 'registry.json'), JSON.stringify({
+    version: 1,
+    mas: [
+      { id: 'mas-a', name: 'a' },
+      { id: 'mas-b', name: 'b' },
+      { id: 'mas-c', name: 'c', status: 'generating', lastGenSessionId: 'pomasa-gen-1-000' },
+    ],
+  }))
   // mas-a: generated + run.json completed -> completed
   writeMas(home, 'mas-a', SINGLE_DESCRIPTOR, { run: { schema_version: 'obv-1', mas_id: 'mas-a', status: 'completed', stages: [] } })
-  // mas-b: generated + run.json mid-run with no live session -> run-failed
+  // mas-b: generated + run.json mid-run with a dead record -> run-failed
   writeMas(home, 'mas-b', SINGLE_DESCRIPTOR, { run: { schema_version: 'obv-1', mas_id: 'mas-b', status: 'running', stages: [] } })
-  // mas-c: attempted generation, not complete (agents missing), session gone -> gen-failed
+  // mas-c: attempted generation, not complete, session gone -> gen-failed
   writeMas(home, 'mas-c', SINGLE_DESCRIPTOR)
   for (const id of ['mas-a', 'mas-b']) {
     fs.mkdirSync(path.join(home, id, 'agents'), { recursive: true })
@@ -515,16 +510,17 @@ test('L2 status machine: session-lifecycle states + single-run guard', async () 
   assert.equal(await status('mas-a'), 'completed')
   assert.equal(await status('mas-b'), 'run-failed')
   assert.equal(await status('mas-c'), 'gen-failed')
-  // single active run: a second run.start is refused while one is live
-  const ok = await call(routes, '/pomasa/run.start', 'POST', { masId: 'mas-a' })
-  assert.equal(ok.json.ok, true)
+  // single active run: recorded live run session blocks a second run.start
+  await call(routes, '/pomasa/record', 'POST', { masId: 'mas-a', kind: 'run', unit: 'single', sessionId: 'a-run' })
+  agents.set('a-run', { id: 'a-run', status: 'running' })
+  assert.equal(await status('mas-a'), 'running')
   const twice = await call(routes, '/pomasa/run.start', 'POST', { masId: 'mas-a' })
   assert.equal(twice.json.ok, false)
   assert.match(twice.json.error, /运行/)
-  // also refused while still generating
-  const g = await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'genning2', topic: 't' })
-  assert.equal(g.json.ok, true)
-  const guarded = await call(routes, '/pomasa/run.start', 'POST', { masId: 'genning2' })
+  // also refused while a generation session is live
+  await call(routes, '/pomasa/record', 'POST', { masId: 'mas-c', kind: 'gen', sessionId: 'c-gen' })
+  agents.set('c-gen', { id: 'c-gen', status: 'running' })
+  const guarded = await call(routes, '/pomasa/run.start', 'POST', { masId: 'mas-c' })
   assert.equal(guarded.json.ok, false)
   assert.match(guarded.json.error, /生成/)
   // one run = one unit: multi run.start with several units is refused
@@ -538,14 +534,9 @@ test('L2 status machine: session-lifecycle states + single-run guard', async () 
   assert.match(multiStart.json.error, /一个单元|一个运行/)
   const oneStart = await call(routes, '/pomasa/run.start', 'POST', { masId: 'idx', units: ['india'] })
   assert.equal(oneStart.json.ok, true)
-
-  // authoritative liveness: DSH's agent registry decides running, not run.json
-  assert.equal(await status('mas-a'), 'running') // run agent alive (mock status running)
-  const runAgent = [...agents.values()].find((a) => String(a.id).startsWith('pomasa-run-'))
-  assert.ok(runAgent)
-  runAgent.status = 'ended' // agent died -> completed run record stays completed
-  assert.equal(await status('mas-a'), 'completed')
-  // a mid-run run.json whose agent is gone (never alive in this host) -> run-failed
+  // authoritative liveness: the agent registry decides, not run.json
+  agents.get('a-run').status = 'ended'
+  assert.equal(await status('mas-a'), 'completed') // completed run.json stays completed
   const deadReg = JSON.parse(fs.readFileSync(path.join(home, 'registry.json'), 'utf8'))
   deadReg.mas.push({ id: 'mas-d', name: 'd', lastRunSessionIds: { single: 'pomasa-run-gone' } })
   fs.writeFileSync(path.join(home, 'registry.json'), JSON.stringify(deadReg))
@@ -735,7 +726,8 @@ test('L2 lifecycle: mas.delete removes dir, registry, and active sessions', asyn
   const { ctx, routes, agents } = mockCtx()
   apply(ctx, { pomasaHome: home })
   await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'gone', topic: 't' })
-  assert.ok([...agents.values()].some((a) => String(a.id).startsWith('pomasa-gen-')))
+  const regBefore = JSON.parse(fs.readFileSync(path.join(home, 'registry.json'), 'utf8'))
+  assert.ok(regBefore.mas.some((m) => m.id === 'gone'))
   const del = await call(routes, '/pomasa/mas.delete', 'POST', { masId: 'gone' })
   assert.equal(del.code, 200)
   assert.equal(del.json.ok, true)

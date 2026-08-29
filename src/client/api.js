@@ -23,10 +23,11 @@ function createApi() {
     blueprintRead: (masId, path, stage) => request('/pomasa/blueprint.read' + q({ masId, path, ...(stage != null ? { stage } : {}) })),
     runLog: (masId, unit) => request('/pomasa/run.log' + q({ masId, unit: unit || '' })),
     generationLog: (masId) => request('/pomasa/generation.log' + q({ masId })),
+    // prepare a run: validates and returns the orchestrator prompt (the session
+    // itself is created by the client through the workspace flow)
+    startRun: (masId, unit) => request('/pomasa/run.start', { method: 'POST', body: JSON.stringify({ masId, units: unit == null ? [] : [unit] }) }),
     createMas: (fields) => request('/pomasa/mas.create', { method: 'POST', body: JSON.stringify(fields) }),
-    startRun: (masId, units) => request('/pomasa/run.start', { method: 'POST', body: JSON.stringify({ masId, units }) }),
-    intervene: (masId, unit, message) => request('/pomasa/run.intervene', { method: 'POST', body: JSON.stringify({ masId, unit: unit || null, message }) }),
-    cancelRun: (masId, unit) => request('/pomasa/run.cancel', { method: 'POST', body: JSON.stringify({ masId, unit: unit || null }) }),
+    recordSession: (masId, kind, unit, sessionId) => request('/pomasa/record', { method: 'POST', body: JSON.stringify({ masId, kind, unit: unit || 'single', sessionId }) }),
     deleteMas: (masId) => request('/pomasa/mas.delete', { method: 'POST', body: JSON.stringify({ masId }) }),
   }
 }

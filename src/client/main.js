@@ -158,6 +158,71 @@ export function apply(ctx) {
     ))
   }
 
+  // Session ids created by the client drive for each MAS, so cancel/intervene
+  // can target them through the sessions service.
+  const lastRunSession = new Map() // masId -> sessionId (most recent run)
+
+  // Cancel the most recent run session for a MAS via the DSH sessions service.
+  async function cancelRunSession(masId) {
+    const sid = lastRunSession.get(masId)
+    if (!sid) return { ok: true }
+    try {
+      const sessionsSvc = ctx.get('sessions')
+      const bound = sessionsSvc && typeof sessionsSvc.binding === 'function' ? sessionsSvc.binding(sid) : null
+      if (bound && bound.session && typeof bound.session.cancel === 'function') {
+        await bound.session.cancel('user')
+      }
+    } catch { /* best-effort */ }
+    return { ok: true }
+  }
+
+  // Direction-1 driver: create the run/gen SESSION through the workspace flow
+  // (workspaces.connectWorkspace -> accounted in the POMASA workspace, exactly
+  // like the sidebar's New Session), drive it with sessions.prompt, and record
+  // the session id so the host status machine follows it. Returns { ok } or an
+  // error; the session appears under POMASA in the DSH sidebar.
+  async function driveSession(kind, masId, unit, prompt) {
+    const workspacesSvc = ctx.get('workspaces')
+    const sessionsSvc = ctx.get('sessions')
+    if (!workspacesSvc || !sessionsSvc || typeof workspacesSvc.connectWorkspace !== 'function') {
+      return { ok: false, error: 'DSH 会话服务不可用' }
+    }
+    let meta = null
+    try { meta = await (await fetch('/pomasa/meta')).json() } catch { /* ignore */ }
+    const home = meta && meta.ok ? meta.home : null
+    const readItems = () => {
+      try {
+        const snap = workspacesSvc.list && typeof workspacesSvc.list.getSnapshot === 'function' ? workspacesSvc.list.getSnapshot() : null
+        return snap && Array.isArray(snap.items) ? snap.items : []
+      } catch { return [] }
+    }
+    let ws = null
+    if (home) ws = readItems().find((w) => (w && String(w.path || w.cwd || '') === home)) || null
+    if (!ws) ws = readItems().find((w) => (w && (w.title || '') === 'POMASA')) || null
+    if (!ws && typeof workspacesSvc.create === 'function' && home) {
+      try {
+        const created = await workspacesSvc.create({ path: home })
+        ws = (created && created.workspaceId) ? created : null
+      } catch { /* ignore */ }
+    }
+    if (!ws) return { ok: false, error: 'POMASA 工作区不可用，请稍后重试' }
+    let sessionId
+    try { sessionId = await workspacesSvc.connectWorkspace(ws.workspaceId) }
+    catch (e) { return { ok: false, error: '创建会话失败：' + String(e && e.message || e) } }
+    try {
+      const bound = typeof sessionsSvc.binding === 'function' ? sessionsSvc.binding(sessionId) : null
+      const sess = bound && bound.session
+      if (sess && typeof sess.prompt === 'function') {
+        await sess.prompt([{ type: 'text', text: String(prompt || '') }], 'queue')
+      } else {
+        return { ok: false, error: 'sessions 服务不支持 prompt' }
+      }
+    } catch (e) { return { ok: false, error: '会话启动失败：' + String(e && e.message || e) } }
+    try { await fetch('/pomasa/record', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ masId, kind, unit: unit || 'single', sessionId }) }) } catch { /* best-effort */ }
+    if (kind === 'run') lastRunSession.set(masId, sessionId)
+    return { ok: true, sessionId }
+  }
+
   function StudioRoot(props) {
     const [selectedId, setSelectedId] = React.useState(null)
     const [mode, setMode] = React.useState('browse') // 'browse' | 'create'
@@ -181,9 +246,10 @@ export function apply(ctx) {
         api,
         onCancel: () => setMode('browse'),
         onDone: (id) => { setSelectedId(id || null); setMode('browse') },
+        onGeneration: (masId, prompt) => driveSession('gen', masId, 'single', prompt),
       })
     } else if (selectedId) {
-      right = h(MasDetail, { api, masId: selectedId })
+      right = h(MasDetail, { api, masId: selectedId, onRun: (masId, unit, prompt) => driveSession('run', masId, unit, prompt), onCancelRun: (masId) => cancelRunSession(masId) })
     } else if (masCount === 0) {
       // first open, nothing exists yet: an onboarding hero — the create action
       // lives only in the left nav head

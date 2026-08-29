@@ -29,6 +29,7 @@ const ROUTES = [
   'mas.delete',
   'blueprint.read',
   'meta',
+  'record',
 ]
 
 // agent.followup expects a typed dsh-session UserMessage (content blocks +
@@ -95,11 +96,6 @@ export function apply(ctx, config = {}) {
   // DSH refuses to re-create a session whose id already has a persisted log that
   // differs from the live one (id collision). Session ids are therefore unique
   // per attempt instead of fixed per masId/unit.
-  function newSessionId(prefix) {
-    sessionSeq += 1
-    return `${prefix}-${sessionSeq}-${Date.now()}`
-  }
-
   // The user-facing ~/.pomasa is provisioned from the pomasa-home/ template
   // (one visible directory in the repo): copy missing files in, never
   // overwrite what the user already has. Mirrors how bootstrap workspaces ship
@@ -195,78 +191,6 @@ export function apply(ctx, config = {}) {
     return referenced.every((agent) => fs.existsSync(path.join(root, String(agent))))
   }
 
-  // Bare agentLoop.create sessions lack the model selection ({{model}} etc.) and
-  // the preset setup that real sessions get. Mirror the harness's own headless
-  // driver instead: resolve the agentDefaultModel selection, create the agent via
-  // the agents registry (which composes the session the normal way), and install
-  // the model selection into the agent's scope.
-  async function createAgentSession(sessionId, promptText) {
-    const agents = ctx.get('agents')
-    if (agents === undefined || typeof agents.create !== 'function') return null
-    // Every pomasa session (create or run, any MAS) belongs to the ONE POMASA
-    // workspace at ~/.pomasa. The session cwd is that workspace; the MAS writes
-    // into its own directories because the prompts carry absolute logical roots.
-    const cwd = home()
-    // loader siblings mount concurrently; wait for the complete application
-    // before creating an agent (mirrors the headless driver's readiness await)
-    try { await ctx.get('loader')?.await?.() } catch { /* loader optional */ }
-    const modelSvc = ctx.get('agentDefaultModel')
-    const selection = (modelSvc && typeof modelSvc.currentSelection === 'function') ? modelSvc.currentSelection() : null
-    const agentOptions = selection && selection.model
-      ? { provider: selection.provider, model: selection.model }
-      : defaultModel() || {}
-    const agentPkg = await import('@deepseek-ai/dsh-agent').catch(() => null)
-    // Compose the deployment's agent preset like the chat/API create path does
-    // (presets.mount attaches the tool loadout, persona, and model selection).
-    // Without it a bare session has NO tools: the model improvises
-    // "<tool_calls>" as plain text and the loop cannot execute anything.
-    const presets = ctx.get('agentPresets')
-    let resolvedPreset = null
-    if (presets && typeof presets.resolve === 'function') {
-      try { resolvedPreset = (await presets.resolve(undefined)).id } catch { /* no roster */ }
-    }
-    const { agent } = await agents.create({
-      sessionId,
-      meta: { cwd },
-      agentOptions,
-      setup: async (agentCtx) => {
-        // block body: setupAndPublish awaits it and then calls setupCommit?.commit();
-        // returning anything non-undefined breaks that contract (see earlier fix)
-        if (agentPkg && selection) agentPkg.installModelSelection(agentCtx, { current: selection, assembled: undefined })
-        if (presets && resolvedPreset) await presets.mount(agentCtx, resolvedPreset)
-      },
-    })
-    agent.followup(promptMessage(promptText))
-    // Account the session into the single POMASA workspace so the sidebar shows
-    // one node holding every pomasa session. The accounting op is
-    // workspace.attachSession(sessionId) — the very thing DSH's own "New
-    // Session" flow runs after creating a session (apiserver sessions.create).
-    // insertSessionBefore only reorders already-accounted sessions and refuses
-    // others ("session is not accounted").
-    const ws = await ensureWorkspace(home(), 'POMASA')
-    if (ws) {
-      const attach = typeof ws.attachSession === 'function'
-        ? () => ws.attachSession(sessionId)
-        : (typeof ws.insertSessionBefore === 'function' ? () => ws.insertSessionBefore(sessionId) : null)
-      if (attach) {
-        try { await attach() } catch { /* attach is best-effort */ }
-      }
-    }
-    return agent
-  }
-
-  function dispatch(masId, unitKey) {
-    const gensSession = genSessions.get(masId)
-    const runKey = `${masId}|${unitKey || ''}`
-    const runSession = runSessions.get(runKey)
-    return {
-      gen: gensSession,
-      run: runSession,
-      // generation is complete once the descriptor and every referenced agent exist
-      generated: hasMas(masId) && isGenerationComplete(masId),
-    }
-  }
-
   // If a generation session ends without leaving pomasa.json behind, mark the
   // MAS as failed instead of staying "generating" forever.
   if (typeof ctx.on === 'function') {
@@ -327,12 +251,11 @@ export function apply(ctx, config = {}) {
   }
 
   function masSummary(m) {
-    const live = dispatch(m.id)
     const root = masDir(home(), m.id)
     const descriptor = loadDescriptor(root)
     const generated = !!descriptor && isGenerationComplete(m.id)
     let status
-    if (live.gen && !generated) {
+    if (generated === false && ((m.lastGenSessionId && isAgentAlive(m.lastGenSessionId)) || genSessions.has(m.id))) {
       // a generation session is alive and not complete
       status = 'generating'
     } else if (!generated) {
@@ -346,7 +269,7 @@ export function apply(ctx, config = {}) {
       // interruption, so the agents registry is authoritative.
       const runSid = Object.values(m.lastRunSessionIds || {})[0] || null
       const alive = runSid ? isAgentAlive(runSid) : null
-      if (alive === true || (alive === null && live.run)) {
+      if (alive === true) {
         status = 'running'
       } else {
         const rf = runFinalState(root, descriptor)
@@ -472,53 +395,42 @@ export function apply(ctx, config = {}) {
       return { ok: true, masId: id, generation: 'session' }
     }
 
-    const sessionId = newSessionId('pomasa-gen')
-    const agent = await createAgentSession(sessionId, generationPrompt(gens, id, root))
-    if (!agent) return { ok: true, masId: id, generation: 'external' }
-    genSessions.set(id, { agent, sessionId, startedAt: Date.now() })
-    sessionOwner.set(sessionId, { masId: id, kind: 'gen' })
-    upsertMas(config, { id, lastGenSessionId: sessionId })
-    return { ok: true, masId: id, generation: 'session' }
+    // Normal generation: host only scaffolds and returns the generator prompt.
+    // The session is created by the CLIENT through the workspace flow (so it is
+    // accounted in the POMASA workspace) and driven by sessions.prompt.
+    return { ok: true, masId: id, generation: 'client', prompt: generationPrompt(gens, id, root) }
   }
 
   async function startRun(body) {
     const { masId } = body
     if (!hasMas(masId)) return { ok: false, error: `no such mas: ${masId}` }
 
-    // One active session per MAS — checked BEFORE the descriptor so a still-
-    // generating MAS (which has no pomasa.json yet) is refused for the right
-    // reason, and a run cannot start while another run session is alive.
-    if (genSessions.has(masId)) return { ok: false, error: 'MAS 正在生成中，生成完成前不能运行' }
-    for (const key of runSessions.keys()) {
-      if (key.startsWith(`${masId}|`)) return { ok: false, error: '已有运行会话进行中，请等待完成或先取消' }
+    // One active session per MAS, checked from the authoritative DSH agent
+    // registry: a run must not start while generation is live nor while another
+    // run session is alive.
+    const reg = loadRegistry(config)
+    const m = reg.mas.find((x) => x.id === masId) || {}
+    if (m.lastGenSessionId && isAgentAlive(m.lastGenSessionId)) {
+      return { ok: false, error: 'MAS 正在生成中，生成完成前不能运行' }
+    }
+    if (m.lastRunSessionIds && Object.values(m.lastRunSessionIds).some((sid) => isAgentAlive(sid))) {
+      return { ok: false, error: '已有运行会话进行中，请等待完成或先取消' }
     }
 
     const descriptor = loadDescriptor(masDir(home(), masId))
     if (!descriptor) return { ok: false, error: 'mas not generated yet (no pomasa.json)' }
 
-    if (!agentLoop) return { ok: false, error: 'agentLoop service unavailable' }
-
     const targets = resolveRunTargets(body, descriptor)
     // One run = one unit, human-initiated: never launch several units at once.
-    // single mode resolves exactly one target (unit null); multi mode resolves
-    // the requested unit, and a "run all" / multi-unit request is refused.
     if (targets.length !== 1) {
       return { ok: false, error: targets.length === 0 ? '没有可运行的单元' : '一次只运行一个单元，请选择要运行的单元' }
     }
     const { key, root } = targets[0]
     fs.mkdirSync(root, { recursive: true })
-    const sessionId = newSessionId('pomasa-run')
-    const agent = await createAgentSession(sessionId, runPrompt(masDir(home(), masId), root, key))
-    if (!agent) return { ok: false, error: 'agent 会话服务不可用（agents.create 未提供）' }
-    const runKey = `${masId}|${key || ''}`
-    const startedAt = Date.now()
-    runSessions.set(runKey, { agent, sessionId, startedAt })
-    sessionOwner.set(sessionId, { masId, kind: 'run', runKey })
-    const runSessionIds = { [`${key || 'single'}`]: sessionId }
-    const reg = loadRegistry(config)
-    const existing = (reg.mas.find((m) => m.id === masId) || {})
-    upsertMas(config, { id: masId, status: 'running', lastRunAt: startedAt, lastRunSessionIds: { ...(existing.lastRunSessionIds || {}), ...runSessionIds } })
-    return { ok: true, units: [key] }
+    // Host only PREPARES the run: the session is created by the CLIENT through
+    // the workspace flow (so it is accounted in the POMASA workspace) and driven
+    // by sessions.prompt. The host returns the orchestrator prompt.
+    return { ok: true, unitKey: key, prompt: runPrompt(masDir(home(), masId), root, key) }
   }
 
   function resolveRunTargets(body, descriptor) {
@@ -571,24 +483,22 @@ export function apply(ctx, config = {}) {
       if (sub === '/generation.status' && req.method === 'GET') {
         const masId = q.masId
         if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
-        const live = dispatch(masId)
+        const m = loadRegistry(config).mas.find((x) => x.id === masId) || {}
         const done = isGenerationComplete(masId)
         let status
         if (done) {
           upsertMas(config, { id: masId, status: 'idle' })
           genSessions.delete(masId)
           status = 'completed'
-        } else if (live.gen) {
+        } else if ((m.lastGenSessionId && isAgentAlive(m.lastGenSessionId)) || genSessions.has(masId)) {
           status = 'generating'
         } else {
-          const reg = loadRegistry(config)
-          const m = reg.mas.find((x) => x.id === masId)
           // a generation was attempted (session started and is gone, or record
           // still says so) but never completed -> failed, not idle
-          const attempted = !!(m && (m.lastGenSessionId || m.status === 'generating' || m.status === 'failed'))
+          const attempted = !!(m.lastGenSessionId || m.status === 'generating' || m.status === 'failed')
           status = attempted ? 'failed' : 'idle'
         }
-        return jsonResponse(res, 200, { ok: true, status, step: live.gen ? 'generating' : null })
+        return jsonResponse(res, 200, { ok: true, status, step: status === 'generating' ? 'generating' : null })
       }
 
       if (sub === '/unit.list' && req.method === 'GET') {
@@ -741,6 +651,31 @@ export function apply(ctx, config = {}) {
         if (s) {
           s.agent.cancel('user')
           runSessions.delete(`${body.masId}|${body.unit || ''}`)
+        }
+        return jsonResponse(res, 200, { ok: true })
+      }
+
+      if (sub === '/record' && req.method === 'POST') {
+        // The CLIENT creates the gen/run session through the workspace flow
+        // (accounted in POMASA) and drives it via sessions.prompt; this endpoint
+        // records that session id so the registry drives the status machine.
+        const body = await readBody(req)
+        const masId = String(body.masId || '')
+        if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
+        const kind = body.kind === 'gen' ? 'gen' : 'run'
+        const sessionId = String(body.sessionId || '')
+        if (!sessionId) return jsonResponse(res, 400, { ok: false, error: 'sessionId is required' })
+        if (kind === 'gen') {
+          upsertMas(config, { id: masId, status: 'generating', lastGenSessionId: sessionId })
+        } else {
+          const existing = (loadRegistry(config).mas.find((m) => m.id === masId) || {})
+          const unit = String(body.unit || 'single')
+          upsertMas(config, {
+            id: masId,
+            status: 'running',
+            lastRunAt: Date.now(),
+            lastRunSessionIds: { ...(existing.lastRunSessionIds || {}), [unit]: sessionId },
+          })
         }
         return jsonResponse(res, 200, { ok: true })
       }
