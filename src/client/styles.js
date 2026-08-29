@@ -192,7 +192,16 @@ export const CSS = `
 .ps-unit-row.on { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
 
 /* ================= workbench ================= */
-.ps-workbench { display: flex; height: 100%; min-height: 0; overflow: hidden; }
+/* The workbench must STRETCH inside whatever flex/block container hosts it
+   (shell panel or the session view area): as a flex item, default
+   flex:0 1 auto sizes to content and clips the right half. */
+.ps-workbench { display: flex; height: 100%; width: 100%; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden; }
+/* The .ps-root * reset never applies here (the workbench mounts outside any
+   .ps-root wrapper), so establish border-box for the whole subtree — without
+   it, width:100% + padding overflows (negative auto margins) and clips.
+   NOTE: this CSS lives in a JS template literal — a stray backtick anywhere
+   inside would terminate it early and silently strip all later styles. */
+.ps-workbench, .ps-workbench *, .ps-workbench *::before, .ps-workbench *::after { box-sizing: border-box; }
 [data-conversation-scroll]:has(.ps-workbench) > [data-composer-seat] { display: none !important; }
 [data-conversation-scroll] > [data-slot="conversation.session"] > div:has(.ps-workbench) { flex: 1 1 0 !important; }
 

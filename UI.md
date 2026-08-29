@@ -38,6 +38,8 @@ PageHeader、Card、Button（primary / ghost）、Badge、StatusDot（等待/运
 4. 单一强调色 `--dsw-alias-brand-primary`（或 `state-business-primary`）；状态徽记用 `state-success/error/warn` 但降饱和。
 5. 动效克制：hover 亮度过渡 150ms，无花哨入场。
 6. 空态：几何图形 + 一句引导文案。
+7. **CSS 以 JS 模板字面量注入，内部禁止出现反引号 `` ` ``**（会提前闭合模板，之后的样式静默全部丢失）；`verify.mjs` 有"恰好一对反引号 + 末条规则存在"的守卫。
+8. 工作台树外直接挂在 DSH 宿主里，`.ps-root *` 的 box-sizing 重置不生效——工作台自身已加 `border-box` 子树重置；缺了它 `width:100% + padding` 会横向溢出（`margin-right` 变负，右侧被裁）。
 
 ## 已知 token（自 harness apps/web 枚举）
 

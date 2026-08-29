@@ -456,6 +456,16 @@ test('L2 client bundle: loads and registers conversation.view + sidebar entry', 
   const bundlePath = path.join(ROOT, 'lib/client.js')
   assert.ok(fs.existsSync(bundlePath), 'lib/client.js missing — run npm run build:client first')
   const src = fs.readFileSync(bundlePath, 'utf8')
+  // CSS ships as a JS template literal; a stray backtick inside CSS would
+  // terminate it early and silently strip every later rule. Guard the source
+  // (exactly one backtick pair) and that the built bundle still ends with the
+  // last rule.
+  const stylesSrc = fs.readFileSync(path.join(ROOT, 'src/client/styles.js'), 'utf8')
+  assert.match(stylesSrc, /export const CSS = `/)
+  assert.equal(stylesSrc.split('`').length, 3, 'styles.js CSS template must contain exactly one backtick pair')
+  assert.match(src, /const CSS = `/)
+  assert.match(src, /@media \(max-width: 820px\)/)
+  assert.match(src, /\.ps-shell-panel/)
   const registrations = []
   const loaded = []
   const sandbox = {
