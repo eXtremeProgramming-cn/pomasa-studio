@@ -1,0 +1,6 @@
+{
+    "google": {
+        "api_key": "your-google-api-key",
+        "cse_id": "your-google-cse-id"
+    }
+}

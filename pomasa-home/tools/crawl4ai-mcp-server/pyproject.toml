@@ -1,0 +1,16 @@
+[project]
+name = "crawl4ai_mcp_server"
+version = "0.1.0"
+description = "MCP Server for Crawl4AI"
+dependencies = [
+    "mcp>=1.2.0",
+    "crawl4ai>=0.1.0",
+]
+requires-python = ">=3.9"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true

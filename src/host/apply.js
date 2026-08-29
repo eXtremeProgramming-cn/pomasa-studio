@@ -7,7 +7,7 @@ import { loadRegistry, saveRegistry, upsertMas } from './core/registry.js'
 import { unitListing, unitState, readArtifact } from './core/state.js'
 import { writeUserInput } from './core/prompt.js'
 import { ensureSkill, generationPrompt, runPrompt } from './core/skill.js'
-import { provisionAllMcps } from './core/mcp-provision.js'
+import { provisionWorkspaceMcp } from './core/mcp-provision.js'
 import { ensurePomasaHome } from './core/pomasa-home.js'
 
 export const name = 'pomasa-studio'
@@ -89,8 +89,7 @@ export function apply(ctx, config = {}) {
   const home = () => pomasaHome(config)
   const gens = ensureSkill(config) // materialize the pinned skill snapshot
   ensurePomasaWorkspace().catch(() => {}) // POMASA workspace record + default AGENTS.md (non-blocking)
-  const dshHome = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
-  provisionAllMcps(dshHome).catch(() => {}) // crawl4ai MCP provisioning is best-effort
+  provisionWorkspaceMcp(home()).catch(() => {}) // crawl4ai into ~/.pomasa/.mcp.json (workspace-scoped, best-effort)
   const genSessions = new Map() // masId -> { agent, sessionId, startedAt }
   const runSessions = new Map() // `${masId}|${unitKey ?? ''}` -> { agent, sessionId, startedAt }
   const sessionOwner = new Map() // sessionId -> { masId, kind: 'gen' | 'run' }
