@@ -212,8 +212,15 @@ export const CSS = `
 
 .ps-main { flex: 1; min-width: 0; overflow-y: auto; }
 .ps-main-inner { max-width: 1280px; width: 100%; margin: 0 auto; padding: 20px 24px 48px; }
-.ps-empty-pane { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.ps-empty-pane .ps-empty { width: 100%; max-width: 460px; }
+
+/* right-pane empty states: a single hero CTA when nothing exists yet, a quiet
+   selection prompt once MASes exist. Exactly one "新建 MAS" button per screen. */
+.ps-empty-hero { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 40px 24px; }
+.ps-hero-glyph { font-size: 46px; line-height: 1; opacity: 0.55; }
+.ps-empty-hero h2 { font-size: 21px; font-weight: 600; margin: 0; }
+.ps-empty-hero p { color: var(--dsw-alias-label-dimmed); font-size: 15px; line-height: 1.65; max-width: 440px; margin: 0; }
+.ps-empty-hero.quiet { opacity: 0.75; }
+.ps-nav-empty { padding: 24px 12px; text-align: center; color: var(--dsw-alias-label-caption); font-size: 13px; }
 
 .ps-info-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--dsw-alias-border-l2); padding-bottom: 14px; margin-bottom: 16px; }
 .ps-info-bar h2 { font-size: 20px; font-weight: 600; margin: 0; }

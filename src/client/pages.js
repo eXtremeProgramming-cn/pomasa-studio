@@ -16,7 +16,13 @@ function MasList(props) {
 
   const refresh = React.useCallback(() => {
     api.listMas()
-      .then((r) => { if (r.ok) { setMas(r.mas); setError(null) } else setError(r.error) })
+      .then((r) => {
+        if (r.ok) {
+          setMas(r.mas)
+          setError(null)
+          if (props.onListChange) props.onListChange(r.mas.length)
+        } else setError(r.error)
+      })
       .catch((e) => setError(String(e && e.message || e)))
   }, [api])
 
@@ -30,7 +36,11 @@ function MasList(props) {
     h('div', { className: 'ps-nav-head' },
       h('div', { className: 'ps-nav-title' },
         h('span', { className: 'name' }, 'POMASA Studio'),
-        h(psBtn, { primary: true, style: { padding: '5px 12px', fontSize: 14 }, onClick: props.onCreate }, '新建 MAS'),
+        // one create entry at a time: the hero owns it while the list is empty,
+        // the nav head owns it once MASes exist
+        mas !== null && mas.length > 0
+          ? h(psBtn, { primary: true, style: { padding: '5px 12px', fontSize: 14 }, onClick: props.onCreate }, '新建 MAS')
+          : null,
       ),
       h('div', { className: 'ps-sub' }, '全部研究 MAS 的全局工作台'),
     ),
@@ -38,7 +48,7 @@ function MasList(props) {
     h('div', { className: 'ps-nav-scroll' },
       mas === null ? h('div', { className: 'ps-muted', style: { padding: '20px 12px' } }, '加载中…') :
       mas.length === 0 ?
-        h(psEmpty, { title: '还没有 MAS', hint: '新建一个研究多代理系统，从填写需求开始。' }) :
+        h('div', { className: 'ps-nav-empty' }, '还没有 MAS') :
         mas.map((m) =>
           h('div', { key: m.id, className: 'ps-nav-row' + (props.selectedId === m.id ? ' on' : ''), onClick: () => props.onSelect(m.id) },
             h('div', { className: 'ps-nav-top' },

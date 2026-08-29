@@ -112,6 +112,7 @@ export function apply(ctx) {
   function StudioRoot(props) {
     const [selectedId, setSelectedId] = React.useState(null)
     const [mode, setMode] = React.useState('browse') // 'browse' | 'create'
+    const [masCount, setMasCount] = React.useState(null) // null = list not loaded yet
     const apiRef = React.useRef(null)
     if (!apiRef.current) apiRef.current = createApi()
     const api = apiRef.current
@@ -122,6 +123,7 @@ export function apply(ctx) {
       onCreate: () => setMode('create'),
       onSelect: (id) => { setSelectedId(id); setMode('browse') },
       onDelete: (id) => { if (selectedId === id) setSelectedId(null) },
+      onListChange: setMasCount,
     })
 
     let right
@@ -133,12 +135,21 @@ export function apply(ctx) {
       })
     } else if (selectedId) {
       right = h(MasDetail, { api, masId: selectedId })
+    } else if (masCount === 0) {
+      // first open, nothing exists yet: a single clear call-to-action hero
+      right = h('div', { className: 'ps-empty-hero' },
+        h('div', { className: 'ps-hero-glyph' }, '◌'),
+        h('h2', null, '还没有研究系统'),
+        h('p', null, '新建一个 MAS，让 POMASA 生成器根据你填写的需求，生成一个自包含的研究多代理系统——agent 蓝图、参考资料、运行状态都由文件驱动。'),
+        h(psBtn, { primary: true, style: { padding: '9px 22px', fontSize: 15 }, onClick: () => setMode('create') }, '新建 MAS'),
+        h('span', { className: 'ps-caption' }, '留空项由 AI 建议'),
+      )
     } else {
-      right = h('div', { className: 'ps-empty-pane' },
-        h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, width: '100%', maxWidth: 460 } },
-          h(psEmpty, { title: '选择或创建一个 MAS', hint: '从左侧导航选择一个研究系统，查看其运行状态与产物。' }),
-          h(psBtn, { primary: true, onClick: () => setMode('create') }, '新建 MAS'),
-        ),
+      // MASes exist, none selected
+      right = h('div', { className: 'ps-empty-hero quiet' },
+        h('div', { className: 'ps-hero-glyph' }, '▫'),
+        h('h2', null, '选择一个 MAS'),
+        h('p', null, '从左侧导航选择一个研究系统，查看运行状态、阶段产物与内容。'),
       )
     }
 

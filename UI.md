@@ -60,6 +60,8 @@ Studio 是分栏工作台：左栏 `.ps-nav` MAS 导航（状态点、单元数�
 
 footer 按钮自身 `.ps-footer-action.on` 表激活。`sidebar.footer.action`（order 20）只做面板开关，不调 workspaces/sessions 服务（早期尝试"自动开会话+预置 view"，因空白会话门控而放弃，见下）。
 
+**创建入口单一性**：同一时刻全屏只有一处"新建 MAS"——列表为空时在右栏 hero（大 CTA），有列表时在左导航头；右栏"未选择"空态只安静提示选择，不带按钮。左栏列表空态用迷你灰字"还没有 MAS"，不重复 hero。
+
 ### 工作台激活时隐藏输入区
 
 对齐 dsh-editor 先例，POMASA tab 活跃时隐藏 composer：
