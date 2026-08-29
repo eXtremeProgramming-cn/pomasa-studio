@@ -108,12 +108,18 @@ export function apply(ctx, config = {}) {
   // overwrite what the user already has. Mirrors how bootstrap workspaces ship
   // a default shape. Also binds every tracked MAS session (generation and run)
   // into the single POMASA workspace so they leave "Ungrouped".
-  async function ensurePomasaWorkspace() {
+  async function ensurePomasaWorkspace(attempt = 0) {
     ensurePomasaHome(config)
     const ws = await ensureWorkspace(pomasaHome(config), 'POMASA')
-    const attach = ws && (typeof ws.attachSession === 'function'
+    // The workspace registry may not be mounted in the plugin scope yet at boot
+    // (apply order); retry with backoff so a later resolve/attach can run.
+    if (!ws) {
+      if (attempt < 10) setTimeout(() => { ensurePomasaWorkspace(attempt + 1) }, 2000)
+      return
+    }
+    const attach = typeof ws.attachSession === 'function'
       ? () => ws.attachSession
-      : (typeof ws.insertSessionBefore === 'function' ? () => ws.insertSessionBefore : null))
+      : (typeof ws.insertSessionBefore === 'function' ? () => ws.insertSessionBefore : null)
     if (attach) {
       try {
         for (const m of loadRegistry(config).mas) {
