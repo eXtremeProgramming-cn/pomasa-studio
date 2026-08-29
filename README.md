@@ -5,9 +5,9 @@ POMASA 的 DSH 插件，远期包成"研究工作台"。管理 `~/.pomasa` 下�
 ## 当前状态（2026-08-28）
 
 - host 侧完成：`~/.pomasa` 数据层（描述符/单元/运行状态/防穿越）+ `/pomasa` HTTP API + 生成/运行会话编排（agentLoop）
-- client 侧：2026-08-29 起工作台改为**左导航右详情**的分栏形态，唯一入口是左下角 `POMASA Studio` 按钮打开的 `shell.overlay` 有界面板（有界不遮挡、任意界面状态可达，会话内 tab 已移除）——见 [UI.md](./UI.md)「最终界面形态」与 [DESIGN.md](./DESIGN.md) 决策 7
+- client 侧：2026-08-29 起工作台改为**左导航右详情**的分栏形态，唯一入口是左下角 `POMASA Studio` 按钮打开的 `shell.overlay` 有界面板（有界不遮挡、任意界面状态可达，会话内 tab 已移除）——见 [UI.md](./docs/UI.md)「最终界面形态」与 [DESIGN.md](./docs/DESIGN.md) 决策 7
 - 数据契约由 [OBV-01/02/03](./01.tools/pomasa/skills/pomasa/pattern-catalog/) 定义（已在 pomasa 仓库定稿并推送）
-- 设计文档 [DESIGN.md](./DESIGN.md)、测试方案 [TESTING.md](./TESTING.md)、UI 选型 [UI.md](./UI.md)
+- 设计文档 [DESIGN.md](./docs/DESIGN.md)、测试方案 [TESTING.md](./docs/TESTING.md)、UI 选型 [UI.md](./docs/UI.md)
 
 ## 验证
 

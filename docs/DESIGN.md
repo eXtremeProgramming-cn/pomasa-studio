@@ -29,7 +29,7 @@
 
 工作台是分栏形态：左栏 MAS 导航（列表 + 新建/删除），右栏详情工作台（信息条、运行控制、阶段条、产物卡、查看器）；新建表单在右栏内。无整页路由。
 
-渲染面（见 UI.md「最终界面形态」）：唯一入口是左下角 `POMASA Studio` 按钮打开的 `shell.overlay` 有界面板（任意界面状态可达，会话内 tab 已移除）。流转：导航选 MAS → 右栏详情；新建 → 右栏表单，提交后回导航并进入该 MAS 详情。
+渲染面（见 docs/UI.md「最终界面形态」）：唯一入口是左下角 `POMASA Studio` 按钮打开的 `shell.overlay` 有界面板（任意界面状态可达，会话内 tab 已移除）。流转：导航选 MAS → 右栏详情；新建 → 右栏表单，提交后回导航并进入该 MAS 详情。
 
 ### 1.2 页面 A：MAS 列表
 
@@ -358,7 +358,7 @@ work 段定位单元，契约定容器、index 定实例、文件定内容
 4. index.json 由阶段 agent 写，run.json 由 orchestrator 写，插件不代写（仅降级兜底）。OBV 三模式均为必选是此条成立的前提。
 5. 新建表单用 user_input 全量字段（去掉输出格式），留空项由生成器兜底"由 AI 建议"。wiki（BHV-08）不提供。
 6. 会话日志可折叠展开，生成与运行会话同一处理，默认收起，展开含 AI 思考过程（如运行时提供）；日志是追溯面板，不参与状态推导。
-7. （2026-08-29）DSH 集成形态：Studio 拆成左导航右详情的分栏工作台；**唯一入口是左下角 `POMASA Studio` 按钮打开的 `shell.overlay` 有界面板**（不遮挡、任意界面状态可达，含 DSH 0.1 不渲染 tab 条的空白会话）。会话内的 `conversation.view` tab 已移除；全屏覆盖层（旧 `.ps-app-overlay`）废弃。详见 UI.md「DSH 平台要点」。
+7. （2026-08-29）DSH 集成形态：Studio 拆成左导航右详情的分栏工作台；**唯一入口是左下角 `POMASA Studio` 按钮打开的 `shell.overlay` 有界面板**（不遮挡、任意界面状态可达，含 DSH 0.1 不渲染 tab 条的空白会话）。会话内的 `conversation.view` tab 已移除；全屏覆盖层（旧 `.ps-app-overlay`）废弃。详见 docs/UI.md「DSH 平台要点」。
 8. （2026-08-29）会话与状态模型：每个 MAS 同一时刻只关联一个活会话。**一次 `run.start` = 对一个单元的一次运行，永远人手发起，绝不批量或自动续跑**（multi 一次传多个单元直接拒绝；客户端"运行"按钮只运行当前选中单元）。MAS 状态由会话生命周期 + 文件事实推导，共六态：`generating` / `gen-failed` / `idle` / `running` / `run-failed` / `completed`（语义见 decision 8 上文）。死会话判定：以 **DSH 宿主 agent 注册表**为权威（`ctx.get('agents').get(sessionId)?.status === 'running'`，与 apiserver 会话汇总同源）——宿主内存表与 run.json 都可能在会话中断后过期：run.json 停在 `running` 且 agent 已死 → `run-failed`。宿主重启后 agent 不在注册表即视为死。运行标识：单元键（含义名）+ run.json 的时间戳即一次运行的身份；同一单元重跑会覆盖该单元记录。
 9. （2026-08-29）DSH 会话↔工作区入账（平台缺口，实证结论）：会话是否显示在某工作区文件夹下，取决于创建时是否"入账"——只有经工作区流程创建（`sessions.create` 带 workspaceId，内部调 `workspace.attachSession`）的会话才入账。插件的生成/运行会话由宿主 `agents.create` 创建（只带 cwd，不带 workspaceId），DSH 拒绝补挂：`insertSessionBefore` 只对已入账会话排序；宿主插件上下文拿不到 `ctx.workspaceRegistry`（全 profile 实测为 null）；客户端无 attachSession RPC；`agents.create` 拒绝认领已存在会话（"session already exists"）。结论：**在当前 DSH 插件 API 下，插件创建的 agent 会话无法归入工作区**（只能停留在"未分组"），工作区文件夹本身可由客户端创建。修复需 harness 侧支持（如给 `agents.create` 加 workspaceId，或把 workspace.attachSession 暴露给插件）。
 10. （2026-08-29）运行/生成会话改由客户端经工作区流程创建（方向 1，已落地）：宿主 `run.start`/`mas.create` 只做准备并返回 prompt；客户端 `workspaces.connectWorkspace(POMASA)` 建出已入账会话，经 `sessions.prompt` 驱动，再经 `/pomasa/record` 登记会话 id。状态以 DSH agent 注册表存活为权威。会话因此显示在 POMASA 文件夹下（隔离环境已验证：点运行后 workspace.json 的 POMASA 成员出现新会话）。
