@@ -111,7 +111,7 @@ export const CSS = `
 .ps-stages { display: flex; gap: 4px; overflow-x: auto; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; padding: 4px; }
 .ps-stage { flex: 1 1 0; min-width: 116px; padding: 10px 12px; cursor: pointer; border-radius: 8px; transition: background 140ms ease; position: relative; }
 .ps-stage:hover { background: var(--dsw-alias-interactive-bg-hover); }
-.ps-stage.on { background: var(--dsw-alias-bg-layer-2); }
+.ps-stage.on { background: var(--dsw-alias-bg-layer-2); box-shadow: inset 0 0 0 1.5px var(--dsw-alias-state-business-primary); }
 .ps-stage-on { position: absolute; top: 0; left: 8px; right: 8px; height: 2.5px; border-radius: 0 0 4px 4px; }
 .ps-stage-name { font-size: 13.5px; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .ps-stage-name:hover { text-decoration: underline; }
