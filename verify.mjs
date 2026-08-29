@@ -151,6 +151,26 @@ test('L1 descriptor: missing file -> null', () => {
   assert.equal(loadDescriptor(path.join(home, 'nope')), null)
 })
 
+test('L1 descriptor: agent paths normalize (bare md, prefixed, prose -> null)', () => {
+  const home = tempHome()
+  writeMas(home, 'demo', {
+    schema_version: 'pomasa-0.10',
+    mas_id: 'demo',
+    work: { mode: 'single' },
+    stages: [
+      { index: 1, id: 'scan', title: 'Scan', agent: '01.initial_scanner.md' },
+      { index: 2, id: 'deep', title: 'Deep', agent_file: 'agents/02.deep.md' },
+      { index: 3, id: 'report', title: 'Report', agent: 'orchestrator（执行 scripts/assemble_report.sh）' },
+      { index: 4, id: 'scr', title: 'Script', agent: 'scripts/assemble_report.sh' },
+    ],
+  })
+  const d = loadDescriptor(path.join(home, 'demo'))
+  assert.equal(d.stages[0].agent, 'agents/01.initial_scanner.md')
+  assert.equal(d.stages[1].agent, 'agents/02.deep.md')
+  assert.equal(d.stages[2].agent, null) // prose is not a blueprint file
+  assert.equal(d.stages[3].agent, null) // non-doc path is not a blueprint file
+})
+
 test('L1 units: single mode -> workspace root', () => {
   const home = tempHome()
   writeMas(home, 'demo', SINGLE_DESCRIPTOR)
@@ -500,6 +520,30 @@ test('L2 status machine: session-lifecycle states + single-run guard', async () 
   assert.match(multiStart.json.error, /一个单元|一个运行/)
   const oneStart = await call(routes, '/pomasa/run.start', 'POST', { masId: 'idx', units: ['india'] })
   assert.equal(oneStart.json.ok, true)
+})
+
+test('L2 generated: generator descriptor shape (bare agents + prose orchestrator) completes', async () => {
+  const home = tempHome()
+  const { ctx, routes } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  // This is the exact shape the real generator emits for 黑神话·钟馗: bare
+  // .md stage agents plus one stage whose agent is a prose orchestrator note.
+  writeMas(home, 'zhongkui', {
+    schema_version: 'pomasa-0.10',
+    mas_id: 'zhongkui',
+    work: { mode: 'single' },
+    stages: [
+      { index: 1, id: 'scan', title: 'Scan', agent: '01.initial_scanner.md', contracts: [] },
+      { index: 2, id: 'report', title: 'Report', agent: 'orchestrator（执行 scripts/assemble_report.sh）', contracts: [] },
+    ],
+  })
+  fs.mkdirSync(path.join(home, 'zhongkui', 'agents'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'zhongkui', 'agents', '01.initial_scanner.md'), '# scan')
+  fs.writeFileSync(path.join(home, 'registry.json'), JSON.stringify({ version: 1, mas: [{ id: 'zhongkui', name: 'z', status: 'generating', lastGenSessionId: 'pomasa-gen-1-0' }] }))
+  const get = await call(routes, '/pomasa/mas.get?masId=zhongkui')
+  assert.equal(get.json.generated, true)
+  const list = await call(routes, '/pomasa/mas.list')
+  assert.equal(list.json.mas.find((m) => m.id === 'zhongkui').status, 'idle')
 })
 
 test('L2 safety: generate requires topic, rejects dup ids', async () => {

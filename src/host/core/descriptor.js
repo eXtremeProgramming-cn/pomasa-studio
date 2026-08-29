@@ -40,15 +40,19 @@ export function loadDescriptor(masRoot) {
 
 /**
  * Agent blueprint paths are MAS-root-relative. The generator emits bare
- * filenames ("01.initial_scanner.md") while our own fixtures use the
- * "agents/..." form; normalize both to the canonical agents/-prefixed path so
- * completion checks, blueprint reads and any other consumers resolve
- * consistently.
+ * filenames ("01.initial_scanner.md"), our fixtures use the "agents/..." form,
+ * and some stages carry a PROSE agent value instead of a file (e.g. an
+ * orchestrator described as "orchestrator（执行 ...）"). Normalize only values
+ * that actually look like blueprint files: bare doc filenames get the agents/
+ * prefix; path-like values are kept as-is; anything else becomes null so
+ * completion checks and blueprint reads don't chase a nonexistent file.
  */
 function normalizeAgentPath(p) {
   if (!p) return null
-  const s = String(p)
-  return s.includes('/') ? s : 'agents/' + s
+  const s = String(p).trim()
+  if (!s) return null
+  if (s.includes('/')) return /\.(md|markdown|txt|json)$/i.test(s) ? s : null
+  return /^[A-Za-z0-9._-]+\.(md|markdown|txt|json)$/i.test(s) ? 'agents/' + s : null
 }
 
 export function normalizeWork(work) {

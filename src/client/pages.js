@@ -359,7 +359,9 @@ function MasDetail(props) {
             title: agentFile ? '查看蓝图 ' + str(agentFile) : undefined,
             onClick: (e) => {
               e.stopPropagation()
-              setBp({ title: str(s.title), path: agentFile ? String(agentFile) : '', index: s.index })
+              // a stage may carry no blueprint file (prose agent, e.g. a shared
+              // orchestrator) — only offer the modal when there is one
+              if (agentFile) setBp({ title: str(s.title), path: String(agentFile), index: s.index })
             },
           }, str(s.title)),
           h('div', { className: 'ps-stage-count' }, stageCountText(s)),
