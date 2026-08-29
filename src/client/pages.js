@@ -378,7 +378,7 @@ function MasDetail(props) {
     ),
 
     stage ? h('div', { key: 'stage-' + str(stageIdx), style: { marginTop: 20 } },
-      stageContractCards(stage, unit, api, openArtifact, artifact),
+      stageContractCards(stage, unit, api, openArtifact, artifact, (p) => api.artifactHead(masId, unit, p)),
     ) : h(psEmpty, { title: '选择阶段' }),
 
     viewer ? h(ArtifactModal, { viewer, onClose: () => { setArtifact(null); setViewer(null) }, onDownload: downloadMd }) : null,
@@ -459,13 +459,14 @@ function stageCountText(s) {
   return status
 }
 
-function stageContractCards(stage, unit, api, openArtifact, artifact) {
+function stageContractCards(stage, unit, api, openArtifact, artifact, onHead) {
   if (!stage) return null
   if (!stage.contracts || !stage.contracts.length) {
     return h(psEmpty, { title: '该阶段无产物契约', hint: str(stage.title) + ' 不产出可见产物（如枚举或编排阶段）。' })
   }
   const all = []
   const seen = new Set()
+  const multi = new Set() // paths referenced by more than one index row -> batch files
   for (const c of stage.contracts) {
     const entries = Array.isArray(c.index) ? c.index : []
     for (const e of entries || []) {
@@ -477,11 +478,11 @@ function stageContractCards(stage, unit, api, openArtifact, artifact) {
         : undefined
       const owner = matched || c
       const path = resolveArtifactPath(owner, e)
-      // Dedupe by the RESOLVED physical file: an artifact is one thing on disk,
-      // however many index rows point at it (a shared index.json, or several
-      // rows all naming the same file like sources_1.md). One file => one card,
-      // and the opened-highlight compares paths, so only that card lights up.
-      if (seen.has(path) || !path) continue
+      if (!path) continue
+      // The physical file is the artifact. Several index rows may all name the
+      // same file (the generator batches many sources into one .md); render it
+      // once, and mark it as a batch so its card uses the file's own H1 title.
+      if (seen.has(path)) { multi.add(path); continue }
       seen.add(path)
       all.push({ contract: owner.id, contractTitle: owner.title, entry: e, path })
     }
@@ -495,20 +496,47 @@ function stageContractCards(stage, unit, api, openArtifact, artifact) {
   return h('div', { className: 'ps-artlist' },
     all.map((a, idx) => {
       const e = a.entry
-      const title = str(e.title || e.id || e.path || e.file) || '(未命名)'
-      const file = str(e.file || e.path)
       const active = artifact && artifact.path === a.path
-      return h('div', { key: idx, className: 'ps-card ps-art' + (active ? ' on' : ''), onClick: () => openArtifact(a.path, a.entry) },
-        h('div', { className: 'ps-art-title' }, title),
-        e.subtitle ? h('div', { className: 'ps-art-sub' }, str(e.subtitle)) : null,
-        e.summary ? h('div', { className: 'ps-art-sum' }, str(e.summary)) : null,
-        h('div', { className: 'ps-art-meta' },
-          h('span', null, file.split('/').pop()),
-          e.size ? h('span', null, fmtSize(e.size)) : null,
-          a.contract ? h('span', null, str(a.contractTitle || a.contract)) : null,
-        ),
-      )
+      return h(ArtifactCard, {
+        key: idx,
+        entry: e,
+        presetTitle: str(e.title || e.id || e.path || e.file) || '(未命名)',
+        path: a.path,
+        forceTitle: multi.has(a.path),
+        onHead,
+        active,
+        onClick: () => openArtifact(a.path, a.entry),
+        contract: a.contractTitle ? str(a.contractTitle) : (a.contract ? str(a.contract) : null),
+      })
     }),
+  )
+}
+
+// Artifact card. For BATCH files (several index rows in one .md) the card
+// represents the FILE and lazily loads its own first heading as the title;
+// plain artifacts keep their entry title.
+function ArtifactCard(props) {
+  const { entry, presetTitle, path, forceTitle, active, onClick, contract, onHead } = props
+  const [h1, setH1] = React.useState(null)
+  React.useEffect(() => {
+    if (!forceTitle || !path || typeof onHead !== 'function') return
+    let stop = false
+    onHead(path)
+      .then((r) => { if (!stop && r && r.ok && r.title) setH1(r.title) })
+      .catch(() => {})
+    return () => { stop = true }
+  }, [path, forceTitle, onHead])
+  const title = str(forceTitle && h1 ? h1 : presetTitle)
+  const file = str((entry && (entry.file || entry.path)) || path)
+  return h('div', { className: 'ps-card ps-art' + (active ? ' on' : ''), onClick },
+    h('div', { className: 'ps-art-title' }, title),
+    entry.subtitle ? h('div', { className: 'ps-art-sub' }, str(entry.subtitle)) : null,
+    entry.summary ? h('div', { className: 'ps-art-sum' }, str(entry.summary)) : null,
+    h('div', { className: 'ps-art-meta' },
+      h('span', null, file.split('/').pop()),
+      entry.size ? h('span', null, fmtSize(entry.size)) : null,
+      contract ? h('span', null, contract) : null,
+    ),
   )
 }
 

@@ -81,6 +81,16 @@ async function readBody(req) {
   return data ? JSON.parse(data) : {}
 }
 
+/** First heading (H1) of a markdown artifact, used as the file's own title. */
+function firstHeading(md) {
+  if (typeof md !== 'string') return null
+  for (const line of md.split('\n')) {
+    const t = line.trim()
+    if (t.startsWith('#')) return t.replace(/^#+\s*/, '').trim()
+  }
+  return null
+}
+
 export function apply(ctx, config = {}) {
   const ws = ctx.get('webServer')
   if (ws === undefined) return
@@ -532,6 +542,11 @@ export function apply(ctx, config = {}) {
         const masId = q.masId
         if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
         const art = readArtifact(config, masId, q.unit || null, q.path || '')
+        if (q.head === '1') {
+          // lightweight head read: just the file's first heading, for cards that
+          // aggregate several index entries into one file (the file's own title).
+          return jsonResponse(res, 200, { ok: true, path: art.path, format: art.format, title: firstHeading(art.content) || null })
+        }
         return jsonResponse(res, 200, { ok: true, ...art })
       }
 
