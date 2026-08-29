@@ -489,6 +489,17 @@ test('L2 status machine: session-lifecycle states + single-run guard', async () 
   const guarded = await call(routes, '/pomasa/run.start', 'POST', { masId: 'genning2' })
   assert.equal(guarded.json.ok, false)
   assert.match(guarded.json.error, /生成/)
+  // one run = one unit: multi run.start with several units is refused
+  const multi = { schema_version: 'obv-1', mas_id: 'idx', work: { mode: 'multi', dimensions: ['country'] }, stages: [] }
+  writeMas(home, 'idx', multi)
+  fs.mkdirSync(path.join(home, 'idx', 'workspace', 'brasil'), { recursive: true })
+  fs.mkdirSync(path.join(home, 'idx', 'workspace', 'india'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'idx', 'workspace', 'brasil', 'run.json'), JSON.stringify({ status: 'completed', stages: [] }))
+  const multiStart = await call(routes, '/pomasa/run.start', 'POST', { masId: 'idx', units: ['brasil', 'india'] })
+  assert.equal(multiStart.json.ok, false)
+  assert.match(multiStart.json.error, /一个单元|一个运行/)
+  const oneStart = await call(routes, '/pomasa/run.start', 'POST', { masId: 'idx', units: ['india'] })
+  assert.equal(oneStart.json.ok, true)
 })
 
 test('L2 safety: generate requires topic, rejects dup ids', async () => {

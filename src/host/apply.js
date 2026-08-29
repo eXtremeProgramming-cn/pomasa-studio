@@ -448,23 +448,26 @@ export function apply(ctx, config = {}) {
     if (!agentLoop) return { ok: false, error: 'agentLoop service unavailable' }
 
     const targets = resolveRunTargets(body, descriptor)
-    const launched = []
-    const runSessionIds = {}
-    for (const { key, root } of targets) {
-      fs.mkdirSync(root, { recursive: true })
-      const sessionId = newSessionId('pomasa-run')
-      const agent = await createAgentSession(sessionId, runPrompt(masDir(home(), masId), root, key))
-      if (!agent) return { ok: false, error: 'agent 会话服务不可用（agents.create 未提供）' }
-      const runKey = `${masId}|${key || ''}`
-      runSessions.set(runKey, { agent, sessionId, startedAt: Date.now() })
-      sessionOwner.set(sessionId, { masId, kind: 'run', runKey })
-      runSessionIds[`${key || 'single'}`] = sessionId
-      launched.push(key)
+    // One run = one unit, human-initiated: never launch several units at once.
+    // single mode resolves exactly one target (unit null); multi mode resolves
+    // the requested unit, and a "run all" / multi-unit request is refused.
+    if (targets.length !== 1) {
+      return { ok: false, error: targets.length === 0 ? '没有可运行的单元' : '一次只运行一个单元，请选择要运行的单元' }
     }
+    const { key, root } = targets[0]
+    fs.mkdirSync(root, { recursive: true })
+    const sessionId = newSessionId('pomasa-run')
+    const agent = await createAgentSession(sessionId, runPrompt(masDir(home(), masId), root, key))
+    if (!agent) return { ok: false, error: 'agent 会话服务不可用（agents.create 未提供）' }
+    const runKey = `${masId}|${key || ''}`
+    const startedAt = Date.now()
+    runSessions.set(runKey, { agent, sessionId, startedAt })
+    sessionOwner.set(sessionId, { masId, kind: 'run', runKey })
+    const runSessionIds = { [`${key || 'single'}`]: sessionId }
     const reg = loadRegistry(config)
     const existing = (reg.mas.find((m) => m.id === masId) || {})
-    upsertMas(config, { id: masId, status: 'running', lastRunAt: Date.now(), lastRunSessionIds: { ...(existing.lastRunSessionIds || {}), ...runSessionIds } })
-    return { ok: true, units: launched }
+    upsertMas(config, { id: masId, status: 'running', lastRunAt: startedAt, lastRunSessionIds: { ...(existing.lastRunSessionIds || {}), ...runSessionIds } })
+    return { ok: true, units: [key] }
   }
 
   function resolveRunTargets(body, descriptor) {

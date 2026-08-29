@@ -319,7 +319,20 @@ function MasDetail(props) {
           : null,
         runStatus === 'running' || runStatus === 'queued'
           ? h(psBtn, { disabled: true }, '运行中…')
-          : h(psBtn, { primary: true, disabled: busy, onClick: () => startRun(Array.isArray(units) ? units.filter((u) => !u.run).map((u) => u.key) : []) }, '运行'),
+          : h(psBtn, {
+              primary: true,
+              disabled: busy,
+              onClick: () => {
+                // one run = one unit, human-initiated: multi mode runs the
+                // currently selected unit (never a batch); single runs the MAS
+                if (descriptor && descriptor.work && descriptor.work.mode === 'multi') {
+                  const key = unit || ((units.find((u) => !u.run) || {}).key)
+                  if (key) startRun([key])
+                } else {
+                  startRun(null)
+                }
+              },
+            }, '运行'),
       ),
 
     notice ? h('div', { className: 'ps-notice ' + notice.kind }, str(notice.text)) : null,
