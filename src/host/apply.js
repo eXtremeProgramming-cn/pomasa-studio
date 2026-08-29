@@ -139,21 +139,30 @@ export function apply(ctx, config = {}) {
     try { wr = ctx.workspaceRegistry || ctx.get('workspaceRegistry') } catch { wr = null }
     if (!wr || typeof wr.resolveByPath !== 'function' || typeof wr.create !== 'function') return null
     try {
-      let ws = await wr.resolveByPath(cwd)
-      if (!ws) ws = await wr.create(cwd)
+      let row = await wr.resolveByPath(cwd)
+      if (!row) {
+        const created = await wr.create(cwd)
+        row = (created?.workspace ?? created) || row
+      }
+      // resolveByPath/create return plain workspace VIEWS (no methods). The
+      // registry OBJECT that carries insertSessionBefore/setTitle comes from
+      // wr.get(workspaceId) — apiproxy resolves it that exact way.
+      let obj = null
+      const id = row && (row.workspaceId ?? row.id)
+      if (id != null && typeof wr.get === 'function') {
+        try {
+          const got = wr.get(id)
+          obj = (got && typeof got.then === 'function' ? await got : got) || null
+        } catch { obj = null }
+      }
+      const ws = obj || row
       // The registry auto-titles a created workspace from its path basename
       // (".pomasa"); rename to the canonical workspace name when possible.
       if (title && ws) {
         if (typeof ws.setTitle === 'function') {
           try { await ws.setTitle(title) } catch { /* title is cosmetic */ }
-        } else if (typeof wr.rename === 'function') {
-          const id = ws.workspaceId ?? ws.id
-          if (id != null) {
-            try {
-              const rn = await wr.rename(id, title)
-              ws = rn?.workspace ?? rn ?? ws
-            } catch { /* title is cosmetic */ }
-          }
+        } else if (typeof wr.rename === 'function' && id != null) {
+          try { await wr.rename(id, title) } catch { /* title is cosmetic */ }
         }
       }
       return ws || null

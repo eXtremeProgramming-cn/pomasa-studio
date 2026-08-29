@@ -297,27 +297,40 @@ function mockCtx() {
       return { agent }
     },
   }
-  const workspaces = new Map() // cwd -> workspace record
+  // Mirrors the real host registry shape: resolveByPath/create return plain
+  // workspace VIEWS, while get(id) returns the registry OBJECT that carries the
+  // methods (insertSessionBefore/setTitle) — apiproxy resolves via get().
+  const wsSeq = { n: 0 }
+  const wsObjects = new Map() // id -> object
+  const wsViewsByCwd = new Map() // cwd -> view
+  const wsObjectByCwd = new Map() // cwd -> object (what the tests assert)
   const workspaceRegistry = {
-    resolveByPath: async (cwd) => workspaces.get(cwd) || null,
+    resolveByPath: async (cwd) => wsViewsByCwd.get(cwd) || null,
     create: async (cwd) => {
-      const w = {
+      wsSeq.n += 1
+      const id = `ws-${wsSeq.n}`
+      const object = {
         cwd,
+        id,
         title: null,
         sessions: [],
         setTitle(t) { this.title = t },
         insertSessionBefore(s) { this.sessions.push(s) },
       }
-      workspaces.set(cwd, w)
-      return w
+      wsObjects.set(id, object)
+      wsViewsByCwd.set(cwd, { cwd, id, workspaceId: id, title: null })
+      wsObjectByCwd.set(cwd, object)
+      return wsViewsByCwd.get(cwd)
     },
+    get: (id) => wsObjects.get(id) || null,
+    rename: async (id, title) => { const o = wsObjects.get(id); if (o) o.title = title; return o },
   }
   // the host exposes the registry as a DIRECT ctx property (ctx.workspaceRegistry)
   const ctx = {
     get: (k) => ({ webServer, agentLoop, agents: agentRegistry, agentDefaultModel: { currentSelection: () => ({ provider: 'mock', model: 'mock-model' }) }, workspaceRegistry }[k]),
     workspaceRegistry,
   }
-  return { ctx, routes, agents: agentsMap, agentLoop, agentRegistry, workspaces }
+  return { ctx, routes, agents: agentsMap, agentLoop, agentRegistry, workspaces: wsObjectByCwd }
 }
 
 function mockRes() {
