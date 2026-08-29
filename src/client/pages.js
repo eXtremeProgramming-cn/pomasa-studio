@@ -377,29 +377,11 @@ function MasDetail(props) {
       }),
     ),
 
-    h('div', { className: 'ps-panel' },
-      stage ? h('div', { key: 'stage-' + str(stageIdx) },
-        stageContractCards(stage, unit, api, openArtifact, artifact),
-      ) : h(psEmpty, { title: '选择阶段' }),
+    stage ? h('div', { key: 'stage-' + str(stageIdx), style: { marginTop: 20 } },
+      stageContractCards(stage, unit, api, openArtifact, artifact),
+    ) : h(psEmpty, { title: '选择阶段' }),
 
-      viewer ? h('div', { className: 'ps-viewer', style: { marginTop: 20 } },
-        h('div', { className: 'ps-viewer-head' },
-          h(psBtn, { ghost: true, onClick: () => { setArtifact(null); setViewer(null) } }, '✕'),
-          h('span', { style: { flex: 1, fontWeight: 600, fontSize: 15 } }, str(viewer.path)),
-          h('span', { className: 'ps-muted' }, str(viewer.format)),
-          h(psBtn, { ghost: true, onClick: downloadMd }, '下载 Markdown'),
-          h(psBtn, { ghost: true, disabled: true, title: 'docx / pdf 导出即将支持' }, '导出 docx/pdf'),
-        ),
-        h('div', { className: 'ps-viewer-body' },
-          viewer.format === 'json'
-            ? h('pre', { className: 'ps-pre' }, prettyJson(String(viewer.content || '')))
-            : viewer.format === 'markdown'
-              ? renderMarkdown(String(viewer.content || ''))
-              : h('pre', { className: 'ps-pre' }, String(viewer.content || '')),
-        ),
-      ) : null,
-    ),
-
+    viewer ? h(ArtifactModal, { viewer, onClose: () => { setArtifact(null); setViewer(null) }, onDownload: downloadMd }) : null,
     bp ? h(BlueprintModal, { api, masId, path: bp.path, title: bp.title, stage: bp.index, onClose: () => setBp(null) }) : null,
     ),
   )
@@ -428,6 +410,30 @@ function BlueprintModal(props) {
           : data.format === 'markdown' ? renderMarkdown(String(data.content || ''))
           : data.format === 'json' ? h('pre', { className: 'ps-pre' }, prettyJson(String(data.content || '')))
           : h('pre', { className: 'ps-pre' }, String(data.content || '')),
+      ),
+    ),
+  )
+}
+
+// Artifact viewer as a modal — the artifacts list stays full-width; clicking an
+// artifact opens its content in a wide dialog (same form as the blueprint modal).
+function ArtifactModal(props) {
+  const { viewer, onClose, onDownload } = props
+  return h('div', { className: 'ps-modal-backdrop', onClick: onClose },
+    h('div', { className: 'ps-modal ps-modal-wide', onClick: (e) => e.stopPropagation() },
+      h('div', { className: 'ps-modal-head' },
+        h('span', { style: { flex: 1, fontWeight: 600, fontSize: 15, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, str(viewer.path)),
+        h('span', { className: 'ps-muted' }, str(viewer.format)),
+        h(psBtn, { ghost: true, onClick: onDownload }, '下载 Markdown'),
+        h(psBtn, { ghost: true, disabled: true, title: 'docx / pdf 导出即将支持' }, '导出 docx/pdf'),
+        h(psBtn, { ghost: true, onClick: onClose }, '✕'),
+      ),
+      h('div', { className: 'ps-modal-body ps-artifact-body' },
+        viewer.format === 'json'
+          ? h('pre', { className: 'ps-pre' }, prettyJson(String(viewer.content || '')))
+          : viewer.format === 'markdown'
+            ? renderMarkdown(String(viewer.content || ''))
+            : h('pre', { className: 'ps-pre' }, String(viewer.content || '')),
       ),
     ),
   )

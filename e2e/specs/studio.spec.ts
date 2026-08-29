@@ -25,8 +25,9 @@ test('stage artifacts render and viewer opens markdown', async ({ page }) => {
   // stage NAME opens the blueprint modal; select the stage by clicking its count
   await page.locator('.ps-stage').filter({ hasText: 'Research' }).locator('.ps-stage-count').click()
   await expect(page.getByText('Finding Alpha', { exact: true })).toBeVisible({ timeout: 10000 })
-  await page.getByText('Finding Alpha', { exact: true }).click()
+  await page.getByText('Finding Alpha', { exact: true }).click() // opens the artifact modal
   await expect(page.getByText('Alpha 的内容')).toBeVisible({ timeout: 10000 })
+  await page.getByRole('button', { name: '✕' }).click() // close the modal before picking the next artifact
   await page.getByText('Finding Beta', { exact: true }).click()
   await expect(page.locator('strong', { hasText: '加粗' })).toBeVisible({ timeout: 10000 })
 })

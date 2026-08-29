@@ -137,6 +137,8 @@ export const CSS = `
 /* ---------- modal ---------- */
 .ps-modal-backdrop { position: fixed; inset: 0; background: var(--dsw-alias-bg-mask-2, rgba(0, 0, 0, 0.4)); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 24px; }
 .ps-modal { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: 14px; width: min(760px, 100%); max-height: 82vh; display: flex; flex-direction: column; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22); }
+.ps-modal-wide { width: min(980px, 100%); max-height: 88vh; }
+.ps-artifact-body { max-height: 72vh; }
 .ps-modal-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--dsw-alias-border-l2); }
 .ps-modal-body { padding: 20px 26px; overflow: auto; line-height: 1.7; font-size: 14.5px; }
 .ps-modal-body h1, .ps-modal-body h2, .ps-modal-body h3 { line-height: 1.3; margin: 1.1em 0 0.45em; }
