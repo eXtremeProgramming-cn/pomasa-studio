@@ -262,7 +262,7 @@ export function apply(ctx) {
     } else {
       // MASes exist, none selected
       right = h('div', { className: 'ps-empty-hero quiet' },
-        h('div', { className: 'ps-hero-glyph' }, '▫'),
+        h('img', { className: 'ps-meme', src: MASA_MEME, alt: '', draggable: false }),
         h('h2', null, '选择一个 MAS'),
         h('p', null, '从左侧导航选择一个研究系统，查看运行状态、阶段产物与内容。'),
       )

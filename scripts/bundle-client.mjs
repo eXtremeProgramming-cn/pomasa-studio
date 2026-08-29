@@ -30,6 +30,7 @@ const styles = read('styles.js').replace('export const CSS = ', 'const CSS = ')
 const api = stripModuleSyntax(read('api.js'))
 const md = stripModuleSyntax(read('md.js'))
 const components = stripModuleSyntax(read('components.js'))
+const meme = stripModuleSyntax(read('meme.js'))
 const pages = stripModuleSyntax(read('pages.js'))
 const main = stripModuleSyntax(read('main.js'))
 
@@ -51,6 +52,8 @@ ${api}
 ${md}
 
 ${components}
+
+${meme}
 
 ${pages}
 

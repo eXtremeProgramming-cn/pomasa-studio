@@ -244,6 +244,7 @@ export const CSS = `
 .ps-empty-hero p { color: var(--dsw-alias-label-dimmed); font-size: 14.5px; line-height: 1.65; max-width: 440px; margin: 0; }
 .ps-empty-hero .ps-caption { margin-top: 4px; }
 .ps-empty-hero.quiet { opacity: 0.8; }
+.ps-meme { width: 200px; height: 200px; object-fit: contain; margin-bottom: 2px; user-select: none; pointer-events: none; -webkit-mask-image: radial-gradient(ellipse closest-side, #000 52%, transparent 76%); mask-image: radial-gradient(ellipse closest-side, #000 52%, transparent 76%); }
 
 /* --- detail info bar --- */
 .ps-info-bar { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; border-bottom: 1px solid var(--dsw-alias-border-l2); padding-bottom: 16px; margin-bottom: 20px; }
