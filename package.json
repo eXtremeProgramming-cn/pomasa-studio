@@ -36,7 +36,7 @@
     "build:client": "node scripts/bundle-client.mjs",
     "verify": "node verify.mjs",
     "test:transport": "bash scripts/transport-smoke.sh",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts",
     "test:e2e:install": "npm i -D @playwright/test && npx playwright install chromium"
   },
   "devDependencies": {

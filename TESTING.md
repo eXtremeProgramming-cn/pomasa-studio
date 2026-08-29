@@ -114,13 +114,15 @@ e2e/
 
 ## 5. 运行条件与已知要点
 
-**L4a 的实际运行方式**：本机 dsh 的 web UI 只在"打开一个真实会话"后渲染对话场景条（Chat/Trajectory/POMASA）。因此浏览器 E2E 无法在空 profile 上复现。servers.mjs 支持两种启动模式：
+**L4a 的实际运行方式**：工作台现在有两处渲染面——会话内 POMASA tab（需会话有内容才出现）与 footer 的 `shell.overlay` 冷启动面板（任意界面状态可达）。因此**默认的空 profile 也能直接到达工作台**：`ensureSession` 先点 footer 面板（原生 DOM click），再回退到开启会话的 tab 路径。`POMASA_E2E_SRC_HOME=user` 模式仍保留，用于跑用户真实会话数据场景。
 
-- 默认：最小 web profile + 插件（无会话，场景条不出现），适合 curl 探活与 host 冒烟。
-- `POMASA_E2E_SRC_HOME=user`：把用户 `~/.dsh` 的 settings.yaml + sessions + storages（排除 profiles 与 node_modules，节省磁盘）拷贝进临时 home，由 dsh 重建最小 web profile 并挂载本插件。界面即与桌面端一致，可打开真实会话、点出 POMASA tab。这是 L4a 的推荐跑法：
+**冷环境启动的前置**：DSH 0.1 空 profile 启动会连弹两个顶层模态——Internal Testing Notice（Continue）与 Add an API key（Configure later），其 mask z-index 1000 冻结一切点击。`e2e/specs/helpers.ts` 的 `ensureSession` 开局先依次关掉它们。
+
+e2e 命令（已修 `package.json` 指向 `e2e/playwright.config.ts`，此前 `playwright test` 从仓库根跑发现不了该配置导致无 baseURL）：
 
 ```bash
-POMASA_E2E_SRC_HOME=user npx playwright test --config=e2e/playwright.config.ts studio
+npm run test:e2e          # 4 用例：fixture 列表/详情/查看器 + mock 生成流
+POMASA_E2E_SRC_HOME=user npm run test:e2e   # 用户环境真实会话数据
 ```
 
 **L4b 生成流（mock 模型）**：E2E 不调用真实 LLM。servers.mjs 设置 `POMASA_TEST_FAST_GENERATION=1`，插件的 mas.create 走快速 mock 路径：流式返回假会话事件（消息/工具调用/思考），约 3 秒后把预置的 `fixtures/mock-generated` 骨架复制进 MAS 目录使 pomasa.json 出现。UI 全链路（生成中实时状态 → 生成日志面板流式渲染 → 完成自动进详情）确定性验证，秒级完成。真实 LLM 路径不变，由独立生成的端到端测试与桌面手动检查覆盖。
@@ -129,7 +131,7 @@ POMASA_E2E_SRC_HOME=user npx playwright test --config=e2e/playwright.config.ts s
 POMASA_E2E_SRC_HOME=user npx playwright test --config=e2e/playwright.config.ts
 ```
 
-已知不稳定性：会话打开依赖 DSH UI 加载时序，偶发 skip；重跑即可。
+已知不稳定性：会话态路径（New Session / 真实会话）依赖 DSH UI 加载时序，偶发 skip；footer 面板路径稳定，重跑即可。
 
 ## 6. 与手动验证的关系
 

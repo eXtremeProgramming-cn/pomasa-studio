@@ -48,3 +48,36 @@ PageHeader、Card、Button（primary / ghost）、Badge、StatusDot（等待/运
 - 语义：`state-success-primary`、`state-error-primary`、`state-warn-primary`
 - 按钮：`button-primary-fill`、`button-primary-hover`
 - 交互：`interactive-bg-hover`
+
+## 最终界面形态（2026-08-29 定稿）
+
+### 两处渲染面（同一套 Studio 工作台）
+
+Studio 是分栏工作台：左栏 `.ps-nav` MAS 导航（状态点、单元数、上次运行、新建/删除），右栏 `.ps-main` 详情（`.ps-info-bar` 信息条、运行控制、`.ps-stages` 阶段条、`.ps-panel` 产物卡+查看器、蓝图弹窗）。新建表单也在右栏内（非弹窗非整页）。同一 `StudioRoot` 挂在两个槽位：
+
+1. **`conversation.view` tab**（id `pomasa-studio`, order 30）：会话内、占正文区，左侧 DSH 会话树始终在屏，顶部 tab 条一键切回 Chat。这是"回普通会话看操作过程"的主路径。
+2. **`shell.overlay` 冷启动面板**（id `pomasa-studio`, order 10）：footer 底部按钮开关。**关键平台约束**：DSH 0.1 对空白会话（`blank && composerPhase==='blank'`）不渲染会话头部与 view ring，故 tab 只在"有对话内容的会话"里出现；面板补足冷启动/空白态。面板是**有界**的：`.ps-shell-root` 全帧 click-through（pointer-events:none），左 264px `.ps-shell-nav` 透空保持侧栏可见可点（侧栏宽 clamp(264,420)，收起为 56px rail），右侧 `.ps-shell-panel` 才 pointer-events:auto。不遮挡、不占屏，任意界面状态可达。
+
+footer 按钮自身 `.ps-footer-action.on` 表激活。`sidebar.footer.action`（order 20）只做面板开关，不调 workspaces/sessions 服务（早期尝试"自动开会话+预置 view"，因空白会话门控而放弃，见下）。
+
+### 工作台激活时隐藏输入区
+
+对齐 dsh-editor 先例，POMASA tab 活跃时隐藏 composer：
+`[data-conversation-scroll]:has(.ps-workbench) > [data-composer-seat] { display:none !important; }`
+（壳层面板在 scroll 容器外，`.ps-workbench` 不会误触该规则。）
+
+### DSH 平台要点（踩坑记录，供后续开发）
+
+- `shell.overlay` 层 z-index 20、`position:absolute;inset:0`、pointer-events:none，其直接子元素被强制 pointer-events:auto（`.pI_x6G_overlayLayer > *`）。要留透空区，必须 `pointer-events:none !important` 覆盖。
+- workspaces 服务是快照仓库：`ctx.get('workspaces').list.getSnapshot().items`；`connectWorkspace(workspaceId)` 返回 reuse-or-create 的会话 id，随后 `ctx.get('sessions').open(id)`。`workspacesSvc.create` 入参是 `{ path }`（不是裸字符串，Workspace 构造会 `'workspaceId' in source`）。
+- 会话有内容前 tab 条不可达；`dsh.conversation.chat.<sessionId>` 是 per-session chat store 的 localStorage persist 键，若想预置 view 必须填全 `{selection:null, draft:'', view, inspect:null}` 否则 composer 崩。
+- e2e：DSH 0.1 冷环境启动弹两个顶层模态（Internal Testing Notice→Continue、Add an API key→Configure later），其 mask z-index 1000 冻结一切点击，helper 必须先关。
+
+### 测试命令
+
+```bash
+npm run build:client   # 重拼接 lib/client.js（纯拼接，无 import）
+npm run verify         # L1+L2：17 项
+npm run test:transport # L3：真实 dsh web + curl
+npm run test:e2e       # L4：Playwright（fixture 数据；已修 package.json 指向 e2e/playwright.config.ts）
+```

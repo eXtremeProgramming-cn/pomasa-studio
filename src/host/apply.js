@@ -261,11 +261,17 @@ export function apply(ctx, config = {}) {
           : m.status === 'failed'
             ? 'failed'
             : 'idle'
+    let unitCount = 0
+    try {
+      const d = loadDescriptor(masDir(home(), m.id))
+      if (d && Array.isArray(d.stages)) unitCount = unitListing(config, d, m.id).length
+    } catch { /* non-fatal: the list still renders */ }
     return {
       id: m.id,
       name: m.name || m.id,
       description: m.description || '',
       status,
+      unitCount,
       createdAt: m.createdAt ?? null,
       lastRunAt: m.lastRunAt ?? null,
     }

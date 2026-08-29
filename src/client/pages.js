@@ -26,46 +26,47 @@ function MasList(props) {
     return () => clearInterval(t)
   }, [refresh])
 
-  return h('div', { className: 'ps-page' },
-    h('div', { className: 'ps-toolbar' },
-      h('div', null,
-        h('h1', { className: 'ps-h1' }, 'POMASA Studio'),
-        h('div', { className: 'ps-sub' }, '全部研究 MAS 的全局工作台'),
+  return h('div', { className: 'ps-nav' },
+    h('div', { className: 'ps-nav-head' },
+      h('div', { className: 'ps-nav-title' },
+        h('span', { className: 'name' }, 'POMASA Studio'),
+        h(psBtn, { primary: true, style: { padding: '5px 12px', fontSize: 14 }, onClick: props.onCreate }, '新建 MAS'),
       ),
-      h('div', { className: 'spacer' }),
-      h(psBtn, { primary: true, onClick: props.onCreate }, '新建 MAS'),
+      h('div', { className: 'ps-sub' }, '全部研究 MAS 的全局工作台'),
     ),
-    error ? h('div', { className: 'ps-notice err' }, error) : null,
-    mas === null ? h('div', { className: 'ps-muted', style: { padding: '40px 0' } }, '加载中…') :
-    mas.length === 0 ?
-      h(psEmpty, { title: '还没有 MAS', hint: '新建一个研究多代理系统，从填写需求开始。' }) :
-      h('div', { className: 'ps-grid' },
+    error ? h('div', { className: 'ps-notice err', style: { margin: 10 } }, error) : null,
+    h('div', { className: 'ps-nav-scroll' },
+      mas === null ? h('div', { className: 'ps-muted', style: { padding: '20px 12px' } }, '加载中…') :
+      mas.length === 0 ?
+        h(psEmpty, { title: '还没有 MAS', hint: '新建一个研究多代理系统，从填写需求开始。' }) :
         mas.map((m) =>
-          h(psCard, { key: m.id, className: 'clickable', onClick: () => props.onOpen(m.id) },
-            h('div', { className: 'ps-card-title' }, str(m.name || m.id)),
-            h('div', { className: 'ps-card-desc' }, str(m.description || '')),
-            h('div', { className: 'ps-card-footer' },
-              h(psBadge, { status: MAS_STATUS_BADGE[m.status] || 'idle' }, MAS_STATUS_TEXT[m.status] || m.status),
-              h('span', { className: 'ps-muted' }, 'ID: ' + str(m.id)),
-              h('span', { className: 'spacer', style: { flex: 1 } }),
+          h('div', { key: m.id, className: 'ps-nav-row' + (props.selectedId === m.id ? ' on' : ''), onClick: () => props.onSelect(m.id) },
+            h('div', { className: 'ps-nav-top' },
+              h('span', { className: 'ps-dot ' + (MAS_STATUS_BADGE[m.status] || 'idle') }),
+              h('span', { className: 'ps-nav-name' }, str(m.name || m.id)),
               h(psBtn, {
                 ghost: true,
-                className: 'ps-btn-danger',
-                style: { padding: '3px 10px', fontSize: 13 },
+                className: 'ps-btn-danger ps-nav-del',
                 title: '删除此 MAS',
                 onClick: (e) => {
                   e.stopPropagation()
                   const name = str(m.name || m.id)
                   if (window.confirm(`确定删除 MAS「${name}」吗？\n这会删除 ${str(m.id)} 的全部运行产物与注册，不可恢复。`)) {
-                    api.deleteMas(m.id).then((r) => { if (r && r.ok) refresh(); else setError((r && r.error) || '删除失败') })
+                    api.deleteMas(m.id).then((r) => {
+                      if (r && r.ok) { refresh(); if (props.onDelete) props.onDelete(m.id) }
+                      else setError((r && r.error) || '删除失败')
+                    })
                   }
                 },
               }, '删除'),
-              h('span', { className: 'ps-caption' }, m.lastRunAt ? '上次运行 ' + fmtTime(m.lastRunAt) : '未运行'),
+            ),
+            h('div', { className: 'ps-nav-meta' },
+              h('span', null, str(m.unitCount) + ' 单元'),
+              h('span', null, m.lastRunAt ? '上次运行 ' + fmtTime(m.lastRunAt) : '未运行'),
             ),
           ),
         ),
-      ),
+    ),
   )
 }
 
@@ -105,13 +106,14 @@ function CreateMas(props) {
     }
   }
 
-  return h('div', { className: 'ps-page' },
-    h('div', { className: 'ps-toolbar' },
-      h(psBtn, { ghost: true, onClick: () => props.onCancel() }, '← 返回'),
-      h('h1', { className: 'ps-h1', style: { margin: 0 } }, '新建 MAS'),
-    ),
-    h('div', { className: 'ps-sub' }, '填写需求，生成器将按 POMASA 模式生成整个研究多代理系统。留空项由 AI 建议。'),
-    error ? h('div', { className: 'ps-notice err' }, error) : null,
+  return h('div', { className: 'ps-main' },
+    h('div', { className: 'ps-main-inner' },
+      h('div', { className: 'ps-info-bar' },
+        h(psBtn, { ghost: true, onClick: () => props.onCancel() }, '取消'),
+        h('h2', null, '新建 MAS'),
+      ),
+      h('div', { className: 'ps-sub' }, '填写需求，生成器将按 POMASA 模式生成整个研究多代理系统。留空项由 AI 建议。'),
+      error ? h('div', { className: 'ps-notice err' }, error) : null,
 
     h(psCard, null,
       h('div', { className: 'ps-form-row' },
@@ -159,8 +161,9 @@ function CreateMas(props) {
       psField({ label: '其它要求' }, h(psTextarea, { value: f.other, onChange: set('other') })),
 
       h('div', { className: 'ps-toolbar', style: { marginBottom: 0, marginTop: 8 } },
-        h(psBtn, { primary: true, disabled: busy || !f.projectId.trim() || !f.topic.trim(), onClick: submit }, busy ? '生成中…' : '生成 MAS'),
-        h('span', { className: 'ps-muted' }, '输出统一为 Markdown，导出由查看器按需提供。'),
+          h(psBtn, { primary: true, disabled: busy || !f.projectId.trim() || !f.topic.trim(), onClick: submit }, busy ? '生成中…' : '生成 MAS'),
+          h('span', { className: 'ps-muted' }, '输出统一为 Markdown，导出由查看器按需提供。'),
+        ),
       ),
     ),
   )
@@ -256,19 +259,20 @@ function MasDetail(props) {
     const gs = (genStatus && genStatus.status) || 'idle'
     const stillWorking = gs === 'generating' || gs === 'queued'
     const failed = gs === 'failed'
-    return h('div', { className: 'ps-page' },
-      h('div', { className: 'ps-toolbar' }, h(psBtn, { ghost: true, onClick: props.onBack }, '← 返回')),
-      h(psCard, null,
-        h('div', { className: 'ps-card-title' }, failed ? '生成失败' : stillWorking ? '生成中' : '生成未启动'),
-        h('div', { className: 'ps-muted', style: { marginTop: 8 } }, failed
-          ? '生成会话已结束但未产出 pomasa.json。可能模型不可用或生成中断，请检查会话日志后重试。'
-          : stillWorking
-            ? '生成器会话正在按 POMASA 模式构造系统。完成后自动进入详情；可在桌面会话区看到生成进度。'
-            : '未检测到生成会话，生成服务可能不可用或会话已失败。'),
-        h('div', { className: 'ps-caption', style: { marginTop: 10 } }, 'generation.status = ' + str(gs)),
-        stillWorking
-          ? h('div', { className: 'ps-caption', style: { marginTop: 14 } }, '完整生成会话与思考过程请到 DSH 侧栏打开该会话，用"对话 / 轨迹"查看。')
-          : null,
+    return h('div', { className: 'ps-main' },
+      h('div', { className: 'ps-main-inner' },
+        h(psCard, null,
+          h('div', { className: 'ps-card-title' }, failed ? '生成失败' : stillWorking ? '生成中' : '生成未启动'),
+          h('div', { className: 'ps-muted', style: { marginTop: 8 } }, failed
+            ? '生成会话已结束但未产出 pomasa.json。可能模型不可用或生成中断，请检查会话日志后重试。'
+            : stillWorking
+              ? '生成器会话正在按 POMASA 模式构造系统。完成后自动进入详情；可在桌面会话区看到生成进度。'
+              : '未检测到生成会话，生成服务可能不可用或会话已失败。'),
+          h('div', { className: 'ps-caption', style: { marginTop: 10 } }, 'generation.status = ' + str(gs)),
+          stillWorking
+            ? h('div', { className: 'ps-caption', style: { marginTop: 14 } }, '完整生成会话与思考过程请到 DSH 侧栏打开该会话，用"对话 / 轨迹"查看。')
+            : null,
+        ),
       ),
     )
   }
@@ -276,7 +280,7 @@ function MasDetail(props) {
   const despName = str((descriptor && (descriptor.name || descriptor.id)) || '')
 
   if (generated === null) {
-    return h('div', { className: 'ps-page' }, h('div', { className: 'ps-muted' }, '加载中…'))
+    return h('div', { className: 'ps-main' }, h('div', { className: 'ps-main-inner' }, h('div', { className: 'ps-muted' }, '加载中…')))
   }
 
   const stages = (state && state.stages) || []
@@ -285,30 +289,30 @@ function MasDetail(props) {
   const run = (state && state.run) || null
   const runStatus = run ? str(run.status) : 'waiting'
 
-  return h('div', { className: 'ps-page' },
-    h('div', { className: 'ps-toolbar' },
-      h(psBtn, { ghost: true, onClick: props.onBack }, '← 列表'),
-      h('div', null,
-        h('h1', { className: 'ps-h1', style: { margin: 0 } }, despName),
-        h('div', { className: 'ps-sub', style: { marginBottom: 0 } },
-          'ID ' + str(masId) + (descriptor && descriptor.schemaVersion ? ' · schema ' + str(descriptor.schemaVersion) : ''),
+  return h('div', { className: 'ps-main' },
+    h('div', { className: 'ps-main-inner' },
+      h('div', { className: 'ps-info-bar' },
+        h('div', null,
+          h('h2', null, despName),
+          h('div', { className: 'ps-info-caption' },
+            'ID ' + str(masId) + (descriptor && descriptor.schemaVersion ? ' · schema ' + str(descriptor.schemaVersion) : '')),
         ),
+        h('div', { className: 'spacer' }),
+        runStatus === 'running' || runStatus === 'queued'
+          ? h(psBtn, {
+              className: 'ps-btn-danger',
+              style: { borderColor: 'var(--dsw-alias-state-error-primary)', color: 'var(--dsw-alias-state-error-primary)' },
+              onClick: () => {
+                if (window.confirm('确定要取消当前运行会话吗？已产生的产物会保留。')) {
+                  api.cancelRun(masId, unit).then(() => refresh())
+                }
+              },
+            }, '取消运行')
+          : null,
+        runStatus === 'running' || runStatus === 'queued'
+          ? h(psBtn, { disabled: true }, '运行中…')
+          : h(psBtn, { primary: true, disabled: busy, onClick: () => startRun(Array.isArray(units) ? units.filter((u) => !u.run).map((u) => u.key) : []) }, '运行'),
       ),
-      h('div', { className: 'spacer' }),
-      runStatus === 'running' || runStatus === 'queued' ?
-        h(psBtn, {
-          className: 'ps-btn-danger',
-          style: { borderColor: 'var(--dsw-alias-state-error-primary)', color: 'var(--dsw-alias-state-error-primary)' },
-          onClick: () => {
-            if (window.confirm('确定要取消当前运行会话吗？已产生的产物会保留。')) {
-              api.cancelRun(masId, unit).then(() => refresh())
-            }
-          },
-        }, '取消运行') : null,
-      runStatus === 'running' || runStatus === 'queued'
-        ? h(psBtn, { disabled: true }, '运行中…')
-        : h(psBtn, { primary: true, disabled: busy, onClick: () => startRun(Array.isArray(units) ? units.filter((u) => !u.run).map((u) => u.key) : []) }, '运行'),
-    ),
 
     notice ? h('div', { className: 'ps-notice ' + notice.kind }, str(notice.text)) : null,
 
@@ -366,6 +370,7 @@ function MasDetail(props) {
     ),
 
     bp ? h(BlueprintModal, { api, masId, path: bp.path, title: bp.title, stage: bp.index, onClose: () => setBp(null) }) : null,
+    ),
   )
 }
 

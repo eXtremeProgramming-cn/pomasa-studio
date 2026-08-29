@@ -13,7 +13,6 @@ export const CSS = `
 .ps-root a { color: var(--dsw-alias-brand-primary); text-decoration: none; }
 .ps-root a:hover { text-decoration: underline; }
 
-.ps-page { max-width: 1024px; margin: 0 auto; padding: 24px 28px 48px; }
 .ps-h1 { font-size: 28px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
 .ps-h2 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
 .ps-sub { color: var(--dsw-alias-label-dimmed); font-size: 15px; margin: 0 0 28px; }
@@ -116,8 +115,13 @@ export const CSS = `
 /* blueprint modal */
 .ps-footer-action { cursor: pointer; padding: 8px 12px; font-size: 14px; font-weight: 600; color: var(--dsw-alias-label-primary); display: flex; align-items: center; gap: 8px; transition: background 150ms; border-radius: 8px; margin: 2px 8px; white-space: nowrap; }
 .ps-footer-action:hover { background: var(--dsw-alias-interactive-bg-hover); }
-.ps-app-overlay { position: fixed; inset: 0; z-index: 90; background: var(--dsw-alias-bg-base); overflow: auto; }
-.ps-app-overlay-close { position: sticky; top: 12px; float: right; margin: 14px 18px 0 0; z-index: 2; }
+.ps-footer-action.on { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-brand-primary); }
+
+/* shell.overlay workbench panel — bounded to the center column, the DSH
+   sidebar stays visible and clickable underneath (click-through root). */
+.ps-shell-root { position: absolute; inset: 0; display: flex; pointer-events: none; }
+.ps-shell-nav { flex: 0 0 264px; }
+.ps-shell-panel { flex: 1; min-width: 0; pointer-events: auto; background: var(--dsw-alias-bg-base); border-left: 1px solid var(--dsw-alias-border-l2); display: flex; min-height: 0; overflow: hidden; }
 .ps-modal-backdrop { position: fixed; inset: 0; background: var(--dsw-alias-bg-mask-2, rgba(0, 0, 0, 0.4)); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 24px; }
 .ps-modal { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: 14px; width: min(760px, 100%); max-height: 82vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25); }
 .ps-modal-head { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--dsw-alias-border-l2); }
@@ -176,4 +180,48 @@ export const CSS = `
 .ps-unit-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; cursor: pointer; }
 .ps-unit-row:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .ps-unit-row.on { background: var(--dsw-alias-bg-layer-2); }
-`
+
+/* workbench split-pane */
+.ps-workbench { display: flex; height: 100%; min-height: 0; overflow: hidden; }
+/* Composer seat: hide while the workbench tab is active (dsh-editor precedent).
+   Self-scopes because a conversation.view renders only when active. */
+[data-conversation-scroll]:has(.ps-workbench) > [data-composer-seat] { display: none !important; }
+[data-conversation-scroll] > [data-slot="conversation.session"] > div:has(.ps-workbench) { flex: 1 1 0 !important; }
+
+.ps-nav { flex: 0 0 280px; min-width: 0; border-right: 1px solid var(--dsw-alias-border-l2); display: flex; flex-direction: column; background: var(--dsw-alias-bg-base); }
+.ps-nav-head { padding: 16px 16px 10px; border-bottom: 1px solid var(--dsw-alias-border-l2); }
+.ps-nav-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ps-nav-title .name { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-nav-head .ps-sub { margin: 4px 0 0; font-size: 13px; color: var(--dsw-alias-label-caption); }
+.ps-nav-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 8px 16px; }
+
+.ps-nav-row { position: relative; display: block; width: 100%; text-align: left; padding: 9px 10px 9px 12px; border-radius: 8px; cursor: pointer; transition: background 150ms; border: none; background: transparent; margin-bottom: 2px; }
+.ps-nav-row:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.ps-nav-row.on { background: var(--dsw-alias-bg-layer-2); }
+.ps-nav-row.on::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--dsw-alias-state-business-primary); }
+.ps-nav-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ps-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.ps-dot.running { color: var(--dsw-alias-brand-primary); }
+.ps-dot.generating { color: var(--dsw-alias-state-warn-primary); }
+.ps-dot.failed { color: var(--dsw-alias-state-error-primary); }
+.ps-dot.idle { color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-caption)); }
+.ps-nav-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.ps-nav-del { margin-left: auto; opacity: 0; padding: 2px 8px; font-size: 12px; }
+.ps-nav-row:hover .ps-nav-del { opacity: 1; }
+.ps-nav-meta { margin: 3px 0 0 16px; font-size: 13px; color: var(--dsw-alias-label-caption); display: flex; gap: 10px; flex-wrap: wrap; }
+
+.ps-main { flex: 1; min-width: 0; overflow-y: auto; }
+.ps-main-inner { max-width: 1280px; width: 100%; margin: 0 auto; padding: 20px 24px 48px; }
+.ps-empty-pane { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.ps-empty-pane .ps-empty { width: 100%; max-width: 460px; }
+
+.ps-info-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--dsw-alias-border-l2); padding-bottom: 14px; margin-bottom: 16px; }
+.ps-info-bar h2 { font-size: 20px; font-weight: 600; margin: 0; }
+.ps-info-bar .spacer { flex: 1; }
+.ps-info-caption { font-size: 13px; color: var(--dsw-alias-label-caption); margin-top: 2px; }
+
+@media (max-width: 820px) {
+  .ps-workbench { flex-direction: column; overflow: auto; }
+  .ps-nav { flex: none; width: 100%; border-right: none; border-bottom: 1px solid var(--dsw-alias-border-l2); max-height: 38vh; }
+  .ps-main { overflow: visible; }
+}`
