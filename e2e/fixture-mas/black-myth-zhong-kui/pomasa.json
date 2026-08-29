@@ -1,0 +1,176 @@
+{
+  "schema_version": "pomasa-0.10",
+  "mas_id": "black-myth-zhong-kui",
+  "name": "《黑神话·钟馗》特点与预期销量研究",
+  "description": "研究《黑神话·钟馗》的产品特点，并基于公开网络信息预估其预期销量（给出情景区间与假设）。",
+  "language": {
+    "blueprint": "zh-CN",
+    "report": "zh-CN"
+  },
+  "run_axis_note": "单次整体运行（Run once as a whole system）",
+  "work": {
+    "mode": "single"
+  },
+  "unit_root": "workspace",
+  "run_manifest": "workspace/run.json",
+  "stages": [
+    {
+      "index": 1,
+      "id": "initial_scan",
+      "title": "初始扫描",
+      "agent": "01.initial_scanner.md",
+      "parallelism": "single",
+      "contracts": [
+        {
+          "artifact": "overview",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "01.initial_scan/game_overview.md",
+          "index_path": "01.initial_scan/overview.index.json",
+          "schema": ["id", "title", "file"]
+        },
+        {
+          "artifact": "source_registry",
+          "shape": "vertical-list",
+          "format": "markdown",
+          "path_glob": "01.initial_scan/source_list.md",
+          "index_path": "01.initial_scan/sources.index.json",
+          "schema": ["id", "title", "file"]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "id": "question_list",
+      "title": "研究问题清单",
+      "agent": "02.question_designer.md",
+      "parallelism": "single",
+      "contracts": [
+        {
+          "artifact": "research_questions",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "02.question_list/research_questions.md",
+          "index_path": "02.question_list/index.json",
+          "schema": ["id", "title", "file"]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "id": "deep_research",
+      "title": "深度资料收集",
+      "agent": "03.deep_researcher.md",
+      "parallelism": "multi",
+      "contracts": [
+        {
+          "artifact": "theme_sources",
+          "shape": "vertical-list",
+          "format": "markdown",
+          "path_glob": "03.deep_research/{topic_code}/sources.md",
+          "index_path": "03.deep_research/index.json",
+          "schema": ["id", "title", "file"]
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "id": "data_verification",
+      "title": "数据核验",
+      "agent": "04.data_verifier.md",
+      "parallelism": "single",
+      "contracts": [
+        {
+          "artifact": "verification_report",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "04.data_verification/verification_report.md",
+          "index_path": "04.data_verification/index.json",
+          "schema": ["id", "title", "file"]
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "id": "analysis",
+      "title": "特点分析与销量预估",
+      "agent": "05.analyzer.md",
+      "parallelism": "multi",
+      "contracts": [
+        {
+          "artifact": "theme_analysis",
+          "shape": "vertical-list",
+          "format": "markdown",
+          "path_glob": "05.analysis/{topic_code}_analysis.md",
+          "index_path": "05.analysis/index.json",
+          "schema": ["id", "title", "file"]
+        },
+        {
+          "artifact": "overall_synthesis",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "05.analysis/overall_synthesis.md",
+          "index_path": "05.analysis/index.json",
+          "schema": ["id", "title", "file"]
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "id": "argument_verification",
+      "title": "论证核验",
+      "agent": "06.argument_verifier.md",
+      "parallelism": "single",
+      "contracts": [
+        {
+          "artifact": "argument_verification_report",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "06.argument_verification/argument_verification_report.md",
+          "index_path": "06.argument_verification/index.json",
+          "schema": ["id", "title", "file"]
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "id": "sections",
+      "title": "报告分节撰写",
+      "agent": "07.section_writer.md",
+      "parallelism": "multi",
+      "contracts": [
+        {
+          "artifact": "report_sections",
+          "shape": "vertical-list",
+          "format": "markdown",
+          "path_glob": "07.sections/{section_id}.{section_name}.md",
+          "index_path": "07.sections/index.json",
+          "schema": ["id", "title", "file"]
+        }
+      ]
+    },
+    {
+      "index": 8,
+      "id": "report",
+      "title": "报告装配与交付",
+      "agent": "orchestrator（执行 scripts/assemble_report.sh）",
+      "parallelism": "single",
+      "contracts": [
+        {
+          "artifact": "final_report",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "08.report/final_report.md",
+          "index_path": "08.report/index.json",
+          "schema": ["id", "title", "file"]
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "unit_root = workspace（单次运行模式，OBV-02 single）。",
+    "契约路径（path_glob / index_path）均相对于 unit_root（workspace/）。",
+    "输出格式统一为 Markdown；本系统由 POMASA Studio 托管，不启用 DOCX/PDF 导出管线（STR-09 不采用）。",
+    "path_glob 中的 {topic_code}/{section_id} 为运行时占位符，实际产物由各阶段 index.json 枚举（OBV-01）。"
+  ]
+}
