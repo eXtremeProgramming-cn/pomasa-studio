@@ -1,41 +1,40 @@
-# pomasa-studio
+# POMASA Studio
 
-POMASA 的 DSH 插件，远期包成"研究工作台"。管理 `~/.pomasa` 下所有 POMASA MAS：列表、新建（user_input 到生成器）、运行状态、阶段产物展示。
+[ EN | [中文](./README.zh-cn.md) ]
 
-## 当前状态（2026-08-28）
+POMASA Studio is a [dsh](https://github.com/deepseek-ai/deepseek-harness) (DeepSeek Harness) plugin that brings a POMASA research workbench into dsh. It manages every POMASA research multi-agent system (MAS) under `~/.pomasa` on this machine: list existing MASes, create new ones from a request, follow run status, and inspect stage outputs.
 
-- host 侧完成：`~/.pomasa` 数据层（描述符/单元/运行状态/防穿越）+ `/pomasa` HTTP API + 生成/运行会话编排（agentLoop）
-- client 侧：2026-08-29 起工作台改为**左导航右详情**的分栏形态，唯一入口是左下角 `POMASA Studio` 按钮打开的 `shell.overlay` 有界面板（有界不遮挡、任意界面状态可达，会话内 tab 已移除）——见 [UI.md](./docs/UI.md)「最终界面形态」与 [DESIGN.md](./docs/DESIGN.md) 决策 7
-- 数据契约由 [OBV-01/02/03](./01.tools/pomasa/skills/pomasa/pattern-catalog/) 定义（已在 pomasa 仓库定稿并推送）
-- 设计文档 [DESIGN.md](./docs/DESIGN.md)、测试方案 [TESTING.md](./docs/TESTING.md)、UI 选型 [UI.md](./docs/UI.md)
+![POMASA Studio workbench](image.png)
 
-## 验证
+## Features
 
-```bash
-npm run build:client # 重新生成 lib/client.js（已提交）
-npm run verify       # L1 单元 + L2 host 集成 + client bundle 冒烟（无 DSH）
-npm run test:transport   # L3：封闭起的真实 dsh web + curl（不碰真实 profile）
-npm run test:e2e:install # 一次性装 @playwright/test + chromium
-npm run test:e2e         # L4a：Playwright 浏览器 E2E（fixture 数据）
-```
+- List every MAS under `~/.pomasa` with its run status and last-run time.
+- Describe a research request in a form and let the POMASA generator build a self-contained multi-agent system from the pattern catalog.
+- Run a MAS as a whole, or split it into units; run sessions are visible in the dsh sidebar.
+- Inspect each stage's artifact contracts and actual outputs; download Markdown directly.
+- The UI is bilingual (Chinese/English), switchable from the bottom of the left nav.
 
-## 安装进 web profile（本地开发）
+## Installation
+
+Prerequisites: dsh installed and configured, and a POMASA `~/.pomasa` home directory on the machine (the POMASA host layer creates it).
 
 ```bash
-dsh plugin --profile web add /Users/gigix/Projects/01.tools/pomasa-studio
-dsh web
+dsh plugin --profile <profile> add /path/to/pomasa-studio
 ```
 
-## 结构
+Replace `<profile>` with the target profile name (e.g. `web`, `desktop`), then start that profile. The dsh footer gains a POMASA Studio button in the bottom-left corner.
 
-```
-src/host/         host 半：apply.js（API）+ core/（数据层）
-src/client/       浏览器半：三页面 + 组件 + 迷你 md 渲染器
-skill/            POMASA skill 快照（钉版本，生成可复现）
-e2e/              L4 浏览器测试：fixture-mas + servers.mjs + specs
-scripts/          bundle-client.mjs、transport-smoke.sh
-```
+## Usage
 
-## 与前身的关系
+1. Start dsh and click the POMASA Studio button at the bottom left to open the workbench.
+2. The left nav lists existing MASes. Click "New MAS" at the top, fill in the research request, and the generator builds the whole system from the POMASA patterns; progress is visible in the dsh session area.
+3. Select a MAS on the left to see its run status, units, and per-stage artifacts on the right.
+4. Stage artifacts render as Markdown and can be downloaded; next to each stage name a button opens its agent blueprint.
+5. Switch the UI language from the bottom of the nav: 中文 / English. MAS content (system names, artifact titles) keeps its own language; only the workbench chrome is translated.
 
-`01.tools/POMASA_Observatory` 是概念验证实验，废弃。本仓库为正式版。
+## Documents
+
+- Design decisions: [docs/DESIGN.md](docs/DESIGN.md)
+- UI choices: [docs/UI.md](docs/UI.md)
+- Testing plan: [docs/TESTING.md](docs/TESTING.md)
+- For developers (structure, verification commands): [docs/DEVELOPING.md](docs/DEVELOPING.md)
