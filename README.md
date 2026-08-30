@@ -16,25 +16,17 @@ POMASA Studio is a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-ha
 
 ## Installation
 
-**Recommended for non-technical users**: install [DSH Desktop](https://dshdesktop.com/en/) and let the agent install the plugin for you. DSH Desktop bundles the DeepSeek Harness runtime in a ready-to-run desktop app (a community project, not an official DeepSeek product), so starting the workbench needs no terminal.
-
-Start DSH Desktop, open a conversation, and send this one message:
-
-> Install the POMASA Studio plugin for me. The source repository is https://github.com/eXtremeProgramming-cn/pomasa-studio. Clone or download it, then build the client bundle by running `node scripts/bundle-client.mjs` inside the repo (the browser bundle is generated, not committed). Add the plugin to the current profile with `dsh plugin --profile desktop add <path>`, restart if needed, and confirm when a POMASA Studio button appears at the bottom left.
-
-The agent does the terminal work from there.
-
-If you would rather install it yourself: DSH Desktop also bundles the `dsh` CLI and a built-in terminal. From a terminal with dsh available, run:
+POMASA Studio is published to npm as `pomasa-studio`:
 
 ```bash
-dsh plugin --profile desktop add /path/to/pomasa-studio
+dsh plugin --profile <profile> add pomasa-studio
 ```
 
-For a standalone dsh install (via npm or npx), the same command installs into any profile:
+**For non-technical users**: install [DSH Desktop](https://dshdesktop.com/en/) (a community project, not an official DeepSeek product; it bundles the DeepSeek Harness runtime as a ready-to-run desktop app) and let the agent install the plugin for you — just send this one message in dsh:
 
-```bash
-dsh plugin --profile <profile> add /path/to/pomasa-studio
-```
+> Install the POMASA Studio plugin from the npm package `pomasa-studio` into the current profile, restart if needed, and confirm when a POMASA Studio button appears at the bottom left.
+
+The agent does the terminal work from there. You can also run the same `dsh plugin` command yourself in the terminal DSH Desktop provides, or in any terminal with a standalone dsh install.
 
 Replace `<profile>` with the target profile name (e.g. `desktop`, `web`), then start that profile. The dsh footer gains a POMASA Studio button in the bottom-left corner. A POMASA `~/.pomasa` home directory is created by the host layer on first use.
 
