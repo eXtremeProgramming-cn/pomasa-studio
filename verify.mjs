@@ -250,6 +250,11 @@ test('L1 artifact.read: honors unit-root guard', () => {
 test('L1 prompt: forces Markdown-only output', () => {
   const md = buildUserInput({ projectId: 'x', topic: 't', runMode: 'single' })
   assert.match(md, /Deliverable|输出格式/)
+  // implicit STR-08 (Pandoc-Ready Markdown): footnote citation is always
+  // baked into the generated user input
+  assert.match(md, /STR-08/)
+  assert.match(md, /\[\^n\]/)
+  assert.match(md, /脚注/)
   assert.doesNotThrow(() => buildUserInput({ projectId: 'y', topic: 't', runMode: 'multi', runDimensions: 'country' }))
   const multiMd = buildUserInput({ projectId: 'z', topic: 't', runMode: 'multi', runUnits: ['a', 'b'] })
   assert.match(multiMd, /- a\n- b/)

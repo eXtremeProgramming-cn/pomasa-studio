@@ -25,6 +25,17 @@ ${Array.isArray(f.runUnits) && f.runUnits.length ? f.runUnits.map((u) => `- ${u}
 - [x] Run once as a whole system
 - [ ] Split into units, each executed separately
 `
+  // Implicit Studio requirement (POMASA STR-08, Pandoc-Ready Markdown): every
+  // generated report must cite its references as pandoc footnotes and follow
+  // the pandoc-ready formatting rules, so the final report converts cleanly
+  // instead of accumulating a messy ad-hoc reference section.
+  const pandocSpec = [
+    '**Report Formatting**（隐含规格，必选）：最终报告必须符合 Pandoc-Ready Markdown 格式（POMASA STR-08）。',
+    '- 引用文献一律做成 pandoc 脚注：正文引用处以 `[^n]` 标注（如 `[^src01]`），脚注定义 `[^n]: ...` 统一放在文档末尾的脚注定义区；不要把引注写成内联链接或堆在文末大段列表里。',
+    '- 全文档只有一个一级标题（#）；章节用二级及以下标题，层级连续不跳级。',
+    '- 标题、列表、代码块、引用、表格等块级元素前后各留一个空行；列表统一用 `-`，嵌套用 2 空格缩进。',
+    '- 中文报告使用全角标点（“”、、，。），不用 ASCII 直引号。',
+  ].join('\n')
   return `# User Input
 
 ## Language Settings
@@ -65,6 +76,8 @@ ${Array.isArray(f.refs) && f.refs.length ? f.refs.map((r) => `- ${r}`).join('\n'
 **Report Format**: ${f.reportFormat || '研究报告'}
 
 **Report Structure**: ${f.reportStructure || '由 AI 建议'}
+
+${pandocSpec}
 
 ---
 
