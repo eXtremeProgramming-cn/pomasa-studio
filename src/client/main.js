@@ -38,14 +38,14 @@ export function apply(ctx) {
     render() {
       if (this.state.err) {
         return h('div', { className: 'ps-page' },
-          h('div', { className: 'ps-notice err' }, 'POMASA Studio 渲染失败：' + String((this.state.err && this.state.err.message) || this.state.err)),
+          h('div', { className: 'ps-notice err' }, t('boundary.fail') + String((this.state.err && this.state.err.message) || this.state.err)),
           this.state.stack
             ? h('pre', { className: 'ps-pre', style: { fontSize: 12, overflow: 'auto', maxHeight: 320 } }, str(this.state.stack))
             : null,
           this.state.errStack
             ? h('pre', { className: 'ps-pre', style: { fontSize: 12, overflow: 'auto', maxHeight: 320 } }, str(this.state.errStack))
             : null,
-          h(psBtn, { ghost: true, onClick: () => this.setState({ err: null, stack: null, errStack: null }) }, '重试'),
+          h(psBtn, { ghost: true, onClick: () => this.setState({ err: null, stack: null, errStack: null }) }, t('retry')),
         )
       }
       return this.props.children
@@ -91,12 +91,13 @@ export function apply(ctx) {
 
   function PomasaFooterAction() {
     const open = usePanelOpen()
+    useLang() // re-render when the language changes while the panel is closed
     return h('div', {
       className: 'ps-footer-action' + (open ? ' on' : ''),
       onClick: () => panel.toggle(),
-      title: open ? '收起 POMASA Studio' : '打开 POMASA Studio',
+      title: open ? t('launcher.close') : t('launcher.open'),
       'aria-expanded': open ? 'true' : 'false',
-    }, h('span', { className: 'ps-footer-glyph' }, '◫'), 'POMASA Studio')
+    }, h('span', { className: 'ps-footer-glyph' }, '◫'), t('studio.title'))
   }
 
   // Giving every pomasa session its "POMASA" workspace folder is done through
@@ -149,11 +150,11 @@ export function apply(ctx) {
     // workbench panel. The in-session conversation.view tab was removed — the
     // panel is reachable on any screen state, so the tab added nothing.
     slots.inject('sidebar.footer.action', () => slots.register(
-      { name: 'sidebar.footer.action', id: 'pomasa-studio', order: 20, label: 'POMASA Studio' },
+      { name: 'sidebar.footer.action', id: 'pomasa-studio', order: 20, label: t('studio.title') },
       () => h2(PomasaFooterAction, null),
     ))
     slots.inject('shell.overlay', () => slots.register(
-      { name: 'shell.overlay', id: 'pomasa-studio', order: 10, label: 'POMASA Studio' },
+      { name: 'shell.overlay', id: 'pomasa-studio', order: 10, label: t('studio.title') },
       () => h2(WorkbenchPanel, null),
     ))
   }
@@ -185,7 +186,7 @@ export function apply(ctx) {
     const workspacesSvc = ctx.get('workspaces')
     const sessionsSvc = ctx.get('sessions')
     if (!workspacesSvc || !sessionsSvc || typeof workspacesSvc.connectWorkspace !== 'function') {
-      return { ok: false, error: 'DSH 会话服务不可用' }
+      return { ok: false, error: t('err.ws.svc') }
     }
     let meta = null
     try { meta = await (await fetch('/pomasa/meta')).json() } catch { /* ignore */ }
@@ -205,25 +206,26 @@ export function apply(ctx) {
         ws = (created && created.workspaceId) ? created : null
       } catch { /* ignore */ }
     }
-    if (!ws) return { ok: false, error: 'POMASA 工作区不可用，请稍后重试' }
+    if (!ws) return { ok: false, error: t('err.ws.home') }
     let sessionId
     try { sessionId = await workspacesSvc.connectWorkspace(ws.workspaceId) }
-    catch (e) { return { ok: false, error: '创建会话失败：' + String(e && e.message || e) } }
+    catch (e) { return { ok: false, error: t('err.ws.create', { m: String(e && e.message || e) }) } }
     try {
       const bound = typeof sessionsSvc.binding === 'function' ? sessionsSvc.binding(sessionId) : null
       const sess = bound && bound.session
       if (sess && typeof sess.prompt === 'function') {
         await sess.prompt([{ type: 'text', text: String(prompt || '') }], 'queue')
       } else {
-        return { ok: false, error: 'sessions 服务不支持 prompt' }
+        return { ok: false, error: t('err.ws.no.prompt') }
       }
-    } catch (e) { return { ok: false, error: '会话启动失败：' + String(e && e.message || e) } }
+    } catch (e) { return { ok: false, error: t('err.ws.start', { m: String(e && e.message || e) }) } }
     try { await fetch('/pomasa/record', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ masId, kind, unit: unit || 'single', sessionId }) }) } catch { /* best-effort */ }
     if (kind === 'run') lastRunSession.set(masId, sessionId)
     return { ok: true, sessionId }
   }
 
   function StudioRoot(props) {
+    useLang() // whole workbench re-renders when the language changes
     const [selectedId, setSelectedId] = React.useState(null)
     const [mode, setMode] = React.useState('browse') // 'browse' | 'create'
     const [masCount, setMasCount] = React.useState(null) // null = list not loaded yet
@@ -255,16 +257,16 @@ export function apply(ctx) {
       // lives only in the left nav head
       right = h('div', { className: 'ps-empty-hero' },
         h('div', { className: 'ps-hero-glyph' }, '◌'),
-        h('h2', null, '还没有研究系统'),
-        h('p', null, '从左侧点击「新建 MAS」，让 POMASA 生成器根据你填写的需求，生成一个自包含的研究多代理系统——agent 蓝图、参考资料、运行状态都由文件驱动。'),
-        h('span', { className: 'ps-caption' }, '留空项由 AI 建议'),
+        h('h2', null, t('hero.first.title')),
+        h('p', null, t('hero.first.desc')),
+        h('span', { className: 'ps-caption' }, t('hero.ai.note')),
       )
     } else {
       // MASes exist, none selected
       right = h('div', { className: 'ps-empty-hero quiet' },
         h('img', { className: 'ps-meme', src: MASA_MEME, alt: '', draggable: false }),
-        h('h2', null, '选择一个 MAS'),
-        h('p', null, '从左侧导航选择一个研究系统，查看运行状态、阶段产物与内容。'),
+        h('h2', null, t('hero.choose.title')),
+        h('p', null, t('hero.choose.desc')),
       )
     }
 

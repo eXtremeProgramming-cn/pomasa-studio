@@ -79,9 +79,9 @@ function psTextarea(props) {
   return h('textarea', Object.assign({ className: 'ps-textarea' }, rest))
 }
 
-const MAS_STATUS_TEXT = { idle: '空闲', running: '运行中', generating: '生成中', 'gen-failed': '生成失败', 'run-failed': '运行失败', completed: '已完成', failed: '失败' }
+const MAS_STATUS_TEXT = { idle: () => t('st.idle'), running: () => t('st.running'), generating: () => t('st.generating'), 'gen-failed': () => t('st.gen-failed'), 'run-failed': () => t('st.run-failed'), completed: () => t('st.completed'), failed: () => t('st.failed') }
 const MAS_STATUS_BADGE = { idle: 'idle', running: 'running', generating: 'generating', 'gen-failed': 'failed', 'run-failed': 'failed', completed: 'completed', failed: 'failed' }
-const STAGE_STATUS_TEXT = { waiting: '等待', active: '运行中', completed: '完成', failed: '失败', skipped: '跳过', aborted: '中止' }
+const STAGE_STATUS_TEXT = { waiting: () => t('stage.waiting'), active: () => t('stage.active'), completed: () => t('stage.completed'), failed: () => t('stage.failed'), skipped: () => t('stage.skipped'), aborted: () => t('stage.aborted') }
 const STAGE_STATUS_BADGE = { waiting: 'idle', active: 'running', completed: 'completed', failed: 'failed', skipped: 'idle', aborted: 'err' }
 
 function fmtTime(ts) {

@@ -233,6 +233,14 @@ export const CSS = `
 .ps-nav-meta { margin: 3px 0 0 15px; font-size: 12px; color: var(--dsw-alias-label-caption); display: flex; gap: 10px; flex-wrap: wrap; }
 .ps-nav-empty { padding: 24px 12px; text-align: center; color: var(--dsw-alias-label-caption); font-size: 13px; }
 
+/* --- nav footer: language switch --- */
+.ps-nav-foot { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; border-top: 1px solid var(--dsw-alias-border-l2); }
+.ps-lang-label { font-size: 12px; color: var(--dsw-alias-label-caption); }
+.ps-lang-opts { display: flex; gap: 2px; }
+.ps-lang-opt { border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-caption); border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; transition: background 140ms ease, color 140ms ease; user-select: none; }
+.ps-lang-opt:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.ps-lang-opt.on { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); font-weight: 550; }
+
 /* --- main panes --- */
 .ps-main { flex: 1; min-width: 0; overflow-y: auto; }
 .ps-main-inner { max-width: 1180px; width: 100%; margin: 0 auto; padding: 20px 28px 56px; }

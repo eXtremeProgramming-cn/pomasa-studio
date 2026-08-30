@@ -667,8 +667,8 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
     console.log('    (skip: react not found under ../deepseek-harness .pnpm)')
     return
   }
-  const src = buildClientSource(['api.js', 'md.js', 'components.js', 'pages.js']) +
-    '\nglobalThis.__ps = { MasList, CreateMas, MasDetail, renderMarkdown, psEmpty, stageContractCards };'
+  const src = buildClientSource(['api.js', 'md.js', 'i18n.js', 'components.js', 'pages.js']) +
+    '\nglobalThis.__ps = { MasList, CreateMas, MasDetail, renderMarkdown, psEmpty, stageContractCards, __lang: langStore };'
   const ctx = vm.createContext({ React: react.React, window: {}, URL, setTimeout, clearTimeout })
   vm.runInContext('var h = React.createElement;\n' + src, ctx)
   const ps = ctx.__ps
@@ -681,6 +681,15 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   assert.match(listHtml, /新建 MAS/)
   assert.match(listHtml, /<button/)
   assert.match(listHtml, /加载中/)
+
+  // bilingual: flipping the language store re-renders the chrome in English
+  ps.__lang.set('en')
+  const enListHtml = react.SSR.renderToString(react.React.createElement(ps.MasList, { api, onCreate: () => {}, onOpen: () => {}, onListChange: () => {} }))
+  assert.match(enListHtml, /All POMASA research MASes/)
+  assert.match(enListHtml, /New MAS/)
+  assert.match(enListHtml, /Language/)
+  assert.doesNotMatch(enListHtml, /新建 MAS/)
+  ps.__lang.set('zh')
 
   const createHtml = react.SSR.renderToString(react.React.createElement(ps.CreateMas, { api, onCancel: () => {}, onDone: () => {} }))
   assert.match(createHtml, /研究主题与核心问题/)
