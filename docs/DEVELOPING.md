@@ -39,11 +39,11 @@ npm run test:e2e          # L4a：Playwright 浏览器 E2E（fixture 数据）
 ## 本地开发安装
 
 ```bash
-dsh plugin --profile web add /Users/gigix/Projects/01.tools/pomasa-studio
+dsh plugin --profile web add ~/Projects/01.tools/pomasa-studio
 dsh web
 ```
 
-desktop profile 采用 pnpm link 方式安装（`link:/Users/gigix/Projects/01.tools/pomasa-studio`），改动即时生效，重启 profile 生效。移除插件时改 profile 的 `package.json`（dependencies 与 `dsh.profile.bundles`）后 `pnpm install`，再手工清掉 pnpm 不清理的 link 符号链接。
+desktop profile 采用 pnpm link 方式安装（`link:~/Projects/01.tools/pomasa-studio`），改动即时生效，重启 profile 生效。移除插件时改 profile 的 `package.json`（dependencies 与 `dsh.profile.bundles`）后 `pnpm install`，再手工清掉 pnpm 不清理的 link 符号链接。
 
 ## 双语规范（改动 client 文案时必读）
 
@@ -52,7 +52,3 @@ desktop profile 采用 pnpm link 方式安装（`link:/Users/gigix/Projects/01.t
 - 状态文本映射（`MAS_STATUS_TEXT`、`STAGE_STATUS_TEXT`）已改为返回函数，取值处要加调用括号。
 - 表单默认值是 Studio 提供的文字，也进 i18n 字典，且"未被编辑的默认项"会跟随界面语言切换。
 - 新增 bundle 文件记得同步 `scripts/bundle-client.mjs` 与 verify.mjs 的 client 源码清单。
-
-## 与前身的关系
-
-`01.tools/POMASA_Observatory` 是概念验证实验，已废弃。本仓库为正式版。
