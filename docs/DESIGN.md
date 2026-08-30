@@ -333,8 +333,8 @@ work 段定位单元，契约定容器、index 定实例、文件定内容
 - 正文包含 3.3、3.4 的完整约定。
 - 必要性：Required。
 
-**OBV-02 Work Unit Decomposition（运行单元规划）**
-- 内容：运行如何划分是 MAS 的设计决定，由描述符 work 段声明（mode、dimensions、units、units_index、unit_layout）。single 与 multi 两种形态，多注重按维嵌套；单元可预声明或运行期枚举。
+**OBV-02 Work Unit Declaration（运行单元声明）**
+- 内容：运行按什么研究对象轴组织成相互隔离的单元，是 MAS 的设计决定，由描述符 work 段声明（mode、dimensions、units、units_index、unit_layout）。single 是整体一次运行，multi 是每个研究对象各跑一次、相互隔离；单元可预声明或运行期枚举。
 - 正文包含 3.1、3.2 work 段的 schema 与时机。
 - 必要性：Required。
 

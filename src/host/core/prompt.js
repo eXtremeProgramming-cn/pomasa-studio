@@ -13,17 +13,17 @@ export function buildUserInput(f) {
       ? `**How is work divided into runs?**
 
 - [ ] Run once as a whole system
-- [x] Split into units, each executed separately
+- [x] Run the MAS separately for each research object (e.g. per country or per date), each run isolated from the others
 
-**Unit Dimensions**: ${f.runDimensions || '由 AI 建议'}
+**Research Object Dimension** (e.g. country, date): ${f.runDimensions || '由 AI 建议'}
 
-**Initial Unit List** (if known ahead):
+**Initial Research Objects** (optional, one per line):
 ${Array.isArray(f.runUnits) && f.runUnits.length ? f.runUnits.map((u) => `- ${u}`).join('\n') : '- （由 AI 建议）'}
 `
       : `**How is work divided into runs?**
 
 - [x] Run once as a whole system
-- [ ] Split into units, each executed separately
+- [ ] Run the MAS separately for each research object (e.g. per country or per date), each run isolated from the others
 `
   // Implicit Studio requirement (POMASA STR-08, Pandoc-Ready Markdown): every
   // generated report must cite its references as pandoc footnotes and follow
