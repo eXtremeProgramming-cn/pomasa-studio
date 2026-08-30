@@ -37,9 +37,19 @@
     "verify": "node verify.mjs",
     "test:transport": "bash scripts/transport-smoke.sh",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
-    "test:e2e:install": "npm i -D @playwright/test && npx playwright install chromium"
+    "test:e2e:install": "npm i -D @playwright/test && npx playwright install chromium",
+    "prepare": "node scripts/bundle-client.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eXtremeProgramming-cn/pomasa-studio.git"
+  },
+  "homepage": "https://github.com/eXtremeProgramming-cn/pomasa-studio",
+  "bugs": {
+    "url": "https://github.com/eXtremeProgramming-cn/pomasa-studio/issues"
   }
 }
