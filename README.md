@@ -12,7 +12,11 @@ POMASA Studio is a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-ha
 - Describe a research request in a form and let the POMASA generator build a self-contained multi-agent system from the pattern catalog.
 - Run a MAS as a whole, or as separate isolated runs per research object; run sessions are visible in the dsh sidebar.
 - Inspect each stage's artifact contracts and actual outputs; download Markdown directly.
+- Rerun a unit from scratch, or continue on top of its existing outputs by telling the agent what to change; destructive reruns always ask for a second confirmation.
+- Manage multi-unit MASes: add units on the fly, and collapse the selector to a summary of the selected unit and run counts.
+- New workspaces are seeded with an MCP config (`~/.pomasa/.dsh/mcp.servers.yml`): crawl4ai works with no key, serper and oxylabs activate once you fill in their credentials.
 - The UI is bilingual (Chinese/English), switchable from the bottom of the left nav.
+
 
 ## Installation
 

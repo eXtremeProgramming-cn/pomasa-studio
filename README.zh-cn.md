@@ -12,6 +12,9 @@ POMASA Studio 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-har
 - 用表单描述研究需求，让 POMASA 生成器按模式目录产出一个自包含的多代理系统。
 - 支持单次整体运行与按研究对象多次隔离运行两种方式，运行会话在 dsh 侧栏可见。
 - 查看每个阶段声明的产物契约与实际产物，Markdown 可直接下载。
+- 运行过的单元可以全部重跑，也可以保留现有成果、按你的指令继续完善；破坏性重跑会要求二次确认。
+- 多单元 MAS 可以随手新增单元，单元列表可折叠成"当前单元 + 运行统计"的摘要行。
+- 新建工作区自带 MCP 配置模板（`~/.pomasa/.dsh/mcp.servers.yml`）：crawl4ai 免密钥可用，serper 与 oxylabs 填入凭据即可启用。
 - 界面中英双语，左侧导航底部一键切换。
 
 ## 安装
