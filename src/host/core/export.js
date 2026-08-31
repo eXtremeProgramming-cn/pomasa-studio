@@ -14,16 +14,9 @@ import mditFootnote from 'markdown-it-footnote'
 import PDFDocument from 'pdfkit'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType } from 'docx'
 
-const FONT_FILE = path.resolve(new URL('../../../assets/fonts/DroidSansFallbackFull.ttf', import.meta.url).pathname)
-const FONT_NAME = 'DroidSansFallback'
+const FONT_FILE = path.resolve(new URL('../../../assets/fonts/HarmonyOS_Sans_SC_Regular.ttf', import.meta.url).pathname)
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: false, breaks: false }).use(mditFootnote)
-
-let fontB64 = null
-function cjkFontB64() {
-  if (fontB64 === null) fontB64 = fs.readFileSync(FONT_FILE).toString('base64')
-  return fontB64
-}
 
 /* ---------------- DOCX (tokens -> docx blocks) ---------------- */
 
