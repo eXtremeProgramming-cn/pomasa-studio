@@ -251,7 +251,7 @@ export function apply(ctx) {
         onGeneration: (masId, prompt) => driveSession('gen', masId, 'single', prompt),
       })
     } else if (selectedId) {
-      right = h(MasDetail, { api, masId: selectedId, onRun: (masId, unit, prompt) => driveSession('run', masId, unit, prompt), onCancelRun: (masId) => cancelRunSession(masId) })
+      right = h(MasDetail, { key: selectedId, api, masId: selectedId, onRun: (masId, unit, prompt) => driveSession('run', masId, unit, prompt), onCancelRun: (masId) => cancelRunSession(masId) })
     } else if (masCount === 0) {
       // first open, nothing exists yet: an onboarding hero — the create action
       // lives only in the left nav head

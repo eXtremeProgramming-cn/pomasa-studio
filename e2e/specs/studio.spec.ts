@@ -31,3 +31,15 @@ test('stage artifacts render and viewer opens markdown', async ({ page }) => {
   await page.getByText('Finding Beta', { exact: true }).click()
   await expect(page.locator('strong', { hasText: '加粗' })).toBeVisible({ timeout: 10000 })
 })
+
+test('switching multi-unit MAS to single-unit MAS resets the detail view', async ({ page }) => {
+  await openPomasaTab(page)
+  // open the multi-unit fixture first: the units card shows its country units
+  await page.getByText('全球南方AI战略国别研究', { exact: true }).first().click()
+  await expect(page.locator('.ps-unit-row').first()).toBeVisible({ timeout: 15000 })
+  // then switch to the single-unit fixture
+  await page.getByText('《黑神话·钟馗》市场调研', { exact: true }).first().click()
+  // single MAS: stage strip renders its own stages, and no units card leaks in
+  await expect(page.locator('.ps-stage').filter({ hasText: '初始扫描' })).toBeVisible({ timeout: 15000 })
+  await expect(page.locator('.ps-unit-row')).toHaveCount(0)
+})
