@@ -199,11 +199,6 @@ function inlineText(tokens) {
   return out
 }
 
-/** Insert zero-width spaces after CJK glyphs so pdfkit can wrap long Chinese runs. */
-function wrapCjk(s) {
-  return String(s).replace(/([\u2E80-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF])/g, '$1\u200B')
-}
-
 /** Walk block tokens and draw onto a pdfkit document. */
 function drawTokens(doc, tokens, width) {
   let i = 0
@@ -212,7 +207,7 @@ function drawTokens(doc, tokens, width) {
     for (let j = i + 1; j < tokens.length && tokens[j].type !== stop; j++) {
       const li = tokens[j]
       if (li.type === 'list_item_open' && tokens[j + 1] && tokens[j + 1].type === 'paragraph_open' && tokens[j + 2]) {
-        items.push(wrapCjk(inlineText(tokens[j + 2].children)))
+        items.push(inlineText(tokens[j + 2].children))
         j += 2
       }
     }
@@ -224,12 +219,12 @@ function drawTokens(doc, tokens, width) {
       case 'heading_open': {
         const level = Number(t.tag[1]) || 1
         doc.moveDown(0.3)
-        doc.fillColor('#111111').fontSize(18 - (level - 1) * 2.6).text(wrapCjk(inlineText(tokens[i + 1].children)), { width })
+        doc.fillColor('#111111').fontSize(18 - (level - 1) * 2.6).text(inlineText(tokens[i + 1].children), { width })
         i += 2
         break
       }
       case 'paragraph_open': {
-        doc.fillColor('#222222').fontSize(11).text(wrapCjk(inlineText(tokens[i + 1].children)), { width, align: 'left', lineGap: 4 })
+        doc.fillColor('#222222').fontSize(11).text(inlineText(tokens[i + 1].children), { width, align: 'left', lineGap: 1 })
         doc.moveDown(0.15)
         i += 2
         break
@@ -251,7 +246,7 @@ function drawTokens(doc, tokens, width) {
             while (i < tokens.length && tokens[i].type !== 'tr_close') {
               if (tokens[i].type === 'th_open' || tokens[i].type === 'td_open') {
                 const inline = tokens[i + 1]
-                row.push(wrapCjk(inlineText((inline && inline.children) || [])))
+                row.push(inlineText((inline && inline.children) || []))
                 i += 2
               } else i++
             }
@@ -284,7 +279,7 @@ function drawTokens(doc, tokens, width) {
         break
       }
       case 'blockquote_open': {
-        doc.fillColor('#555555').fontSize(11).text(wrapCjk(inlineText(tokens[i + 1].children)), { width: width - 20, align: 'left' })
+        doc.fillColor('#555555').fontSize(11).text(inlineText(tokens[i + 1].children), { width: width - 20, align: 'left' })
         i += 2
         break
       }
