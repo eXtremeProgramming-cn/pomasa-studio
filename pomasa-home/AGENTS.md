@@ -1,5 +1,21 @@
 # POMASA 工作区约定
 
+## POMASA 是什么
+
+POMASA（模式导向的多智能体系统架构，Pattern-Oriented Multi-Agent System Architecture）是一套关于"如何建设 AI 辅助研究系统"的知识体系与生成机制。它把构建研究多智能体系统的经验沉淀为一套模式目录（pattern catalog），AI 读完这些模式，就能为单个研究课题生成一个自包含、可运行、可观察的研究 MAS。研究者也可以把自己对课题的问题意识与分析洞察注入生成出的系统，再迭代完善。完整模式目录与论文见 https://github.com/eXtremeProgramming-cn/pomasa，需要时自行查阅。
+
+## 声明式 MAS 架构
+
+POMASA 的核心架构主张：一套 MAS 不是程序，而是一组声明。agent 用自然语言蓝图定义（COR-01），不写编译代码；运行时由智能运行时解释执行（COR-02）。也因此，对智能体运行时而言，POMASA 模式语言本身是可执行的：AI 可以直接读模式、直接生成可运行的系统，省掉人把模式翻译成代码的环节。
+
+这个架构带来三个关键属性：
+
+- 系统的全部就是一组可读文档（agent 蓝图、描述符 pomasa.json、参考数据）。任何人和任何 AI 都能直接读、直接改、重新生成整个系统。
+- 建设系统的门槛从"会编程"降到"会用研究语言描述系统"。POMASA 的构建者本就是领域研究者而非软件工程师，这套架构让他们不必学 API 和数据结构。
+- 运行时与界面只按声明执行和渲染，不写死任何结构；系统长什么样、跑到哪、产出什么，全程由声明文件说话。
+
+声明文件的具体形态（pomasa.json 声明结构、run.json 记录运行、index.json 枚举产物）见模式快照 `~/.pomasa/skills/<version>/pattern-catalog/` 的 OBV-01/02/03。
+
 本工作区托管所有 POMASA 研究 MAS。每个 MAS 是一个自包含目录（agents/、references/、workspace/、pomasa.json）。
 
 ## 目录边界
