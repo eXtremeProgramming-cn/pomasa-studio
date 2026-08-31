@@ -827,6 +827,32 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   assert.equal((sameHtml.match(/class="ps-card ps-art"/g) || []).length, 1)
 })
 
+test('L2 export endpoint returns downloadable docx/pdf buffers', async () => {
+  const home = tempHome()
+  const { ctx, routes } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  const handler = routes.get('exact:/pomasa/export')
+  assert.ok(handler, 'export route registered')
+  const mk = (content, format) => {
+    const req = { url: '/pomasa/export', method: 'POST' }
+    req[Symbol.asyncIterator] = async function* () { yield JSON.stringify({ content, format }) }
+    return req
+  }
+  const d = mockRes()
+  await handler(mk('# \u6807\u9898\n\n\u4e2d\u6587\u6b63\u6587', 'docx'), d)
+  assert.equal(d.code, 200)
+  assert.ok(Buffer.isBuffer(d.body), 'docx body must be a buffer')
+  assert.equal(d.body.subarray(0, 2).toString(), 'PK')
+  const p = mockRes()
+  await handler(mk('# hi\n\nchinese text', 'pdf'), p)
+  assert.equal(p.code, 200)
+  assert.ok(Buffer.isBuffer(p.body), 'pdf body must be a buffer')
+  assert.match(p.body.subarray(0, 8).toString(), /%PDF-/)
+  const bad = mockRes()
+  await handler(mk('# x', 'png'), bad)
+  assert.equal(bad.code, 400)
+})
+
 test('L2 lifecycle: mas.delete removes dir, registry, and active sessions', async () => {
   const home = tempHome()
   const { ctx, routes, agents } = mockCtx()

@@ -734,9 +734,11 @@ export function apply(ctx, config = {}) {
             'content-disposition': `attachment; filename="pomasa.${format}"`,
           })
           res.end(Buffer.isBuffer(buf) ? buf : Buffer.from(buf))
+          return
         } catch (e) {
           res.writeHead(500, { 'content-type': 'application/json; charset=utf-8' })
           res.end(JSON.stringify({ ok: false, error: 'export failed: ' + String((e && e.message) || e) }))
+          return
         }
       }
 
