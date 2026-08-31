@@ -50,17 +50,16 @@ export const CSS = `
   user-select: none;
   white-space: nowrap;
 }
-.ps-btn:hover { background: var(--dsw-alias-bg-layer-3, var(--dsw-alias-interactive-bg-hover)); border-color: var(--dsw-alias-border-l3); }
+.ps-btn:not(:disabled):hover { background: var(--dsw-alias-bg-layer-3, var(--dsw-alias-interactive-bg-hover)); border-color: var(--dsw-alias-border-l3); }
 .ps-btn:active { transform: translateY(0.5px); }
 .ps-btn:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; }
-.ps-btn.primary { background: var(--dsw-alias-brand-primary); border-color: transparent; color: #fff; font-weight: 550; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
-.ps-btn.primary:hover { background: var(--dsw-alias-button-primary-hover, var(--dsw-alias-brand-primary)); filter: brightness(1.06); }
+.ps-btn.primary { background: var(--dsw-alias-button-primary-fill); border-color: transparent; color: var(--dsw-alias-label-primary-foreground); font-weight: 550; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+.ps-btn.primary:not(:disabled):hover { background: var(--dsw-alias-button-primary-hover); }
 .ps-btn.ghost { background: transparent; border-color: transparent; color: var(--dsw-alias-label-dimmed); }
-.ps-btn.ghost:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); border-color: transparent; }
+.ps-btn.ghost:not(:disabled):hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); border-color: transparent; }
 .ps-btn-danger { color: var(--dsw-alias-state-error-primary) !important; }
-.ps-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger) !important; filter: none !important; box-shadow: none !important; }
+.ps-btn-danger:not(:disabled):hover { background: var(--dsw-alias-interactive-bg-hover-danger) !important; filter: none !important; box-shadow: none !important; }
 .ps-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
-.ps-btn:disabled:hover { background: inherit; filter: none; }
 
 /* ---------- badges / status ---------- */
 .ps-badge {
@@ -199,15 +198,16 @@ export const CSS = `
 .ps-rerun { display: flex; flex-direction: column; gap: 14px; }
 .ps-rerun-opt { border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; padding: 14px 16px; background: var(--dsw-alias-bg-layer-1); }
 .ps-rerun-opt-title { font-size: 14.5px; font-weight: 600; color: var(--dsw-alias-label-primary); margin-bottom: 4px; }
-.ps-rerun-opt-body { font-size: 13px; color: var(--dsw-alias-label-dimmed); line-height: 1.55; margin-bottom: 12px; }
-.ps-rerun-fresh { background: var(--dsw-alias-state-error-primary); border-color: transparent; color: #fff; width: 100%; }
-.ps-rerun-fresh:hover { background: var(--dsw-alias-state-error-primary); filter: brightness(1.06); }
+.ps-rerun-opt-body { font-size: 13px; color: var(--dsw-alias-label-secondary); line-height: 1.55; margin-bottom: 12px; }
+.ps-rerun-fresh { background: var(--dsw-alias-state-error-primary); border-color: transparent; color: var(--dsw-alias-label-primary-foreground); width: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+.ps-rerun-fresh:not(:disabled):hover { background: var(--dsw-alias-state-error-primary); filter: brightness(1.06); }
 .ps-rerun-input { width: 100%; min-height: 76px; }
 .ps-rerun-confirm { font-size: 14px; line-height: 1.6; padding: 12px 14px; border-radius: 8px; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); }
 .ps-rerun-confirm.danger { border-color: var(--dsw-alias-state-error-primary); color: var(--dsw-alias-state-error-primary); background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent); }
-.ps-rerun-instruction { font-size: 13px; color: var(--dsw-alias-label-dimmed); background: var(--dsw-alias-bg-layer-2); border-radius: 8px; padding: 10px 12px; word-break: break-word; }
+.ps-rerun-instruction { font-size: 13px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-layer-2); border-radius: 8px; padding: 10px 12px; word-break: break-word; }
 .ps-rerun-instruction-label { font-size: 12px; color: var(--dsw-alias-label-caption); margin-bottom: 4px; }
-.ps-rerun-confirm-btn { color: #fff !important; }
+.ps-rerun-confirm-btn { background: var(--dsw-alias-state-error-primary) !important; border-color: transparent !important; color: var(--dsw-alias-label-primary-foreground) !important; }
+.ps-rerun-confirm-btn:not(:disabled):hover { background: var(--dsw-alias-state-error-primary) !important; filter: brightness(1.06); }
 
 /* ================= workbench ================= */
 /* The workbench must STRETCH inside whatever flex/block container hosts it
