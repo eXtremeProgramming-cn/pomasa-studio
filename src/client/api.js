@@ -25,8 +25,16 @@ function createApi() {
     runLog: (masId, unit) => request('/pomasa/run.log' + q({ masId, unit: unit || '' })),
     generationLog: (masId) => request('/pomasa/generation.log' + q({ masId })),
     // prepare a run: validates and returns the orchestrator prompt (the session
-    // itself is created by the client through the workspace flow)
-    startRun: (masId, unit) => request('/pomasa/run.start', { method: 'POST', body: JSON.stringify({ masId, units: unit == null ? [] : [unit] }) }),
+    // itself is created by the client through the workspace flow). mode 'fresh'
+    // wipes the unit's outputs first; 'continue' keeps them and the instruction
+    // steers how existing outputs evolve.
+    startRun: (masId, unit, opts) => request('/pomasa/run.start', { method: 'POST', body: JSON.stringify({
+      masId,
+      units: unit == null ? [] : [unit],
+      mode: (opts && opts.mode) || 'continue',
+      instruction: (opts && opts.instruction) || '',
+    }) }),
+    unitAdd: (masId, key) => request('/pomasa/unit.add', { method: 'POST', body: JSON.stringify({ masId, key }) }),
     createMas: (fields) => request('/pomasa/mas.create', { method: 'POST', body: JSON.stringify(fields) }),
     recordSession: (masId, kind, unit, sessionId) => request('/pomasa/record', { method: 'POST', body: JSON.stringify({ masId, kind, unit: unit || 'single', sessionId }) }),
     deleteMas: (masId) => request('/pomasa/mas.delete', { method: 'POST', body: JSON.stringify({ masId }) }),

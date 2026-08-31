@@ -192,6 +192,22 @@ export const CSS = `
 .ps-unit-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: background 140ms ease, border-color 140ms ease; }
 .ps-unit-row:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .ps-unit-row.on { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
+.ps-unit-add { display: flex; gap: 8px; margin-bottom: 10px; }
+.ps-unit-add .ps-input { flex: 1; min-width: 0; }
+
+/* ---------- rerun modal ---------- */
+.ps-rerun { display: flex; flex-direction: column; gap: 14px; }
+.ps-rerun-opt { border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; padding: 14px 16px; background: var(--dsw-alias-bg-layer-1); }
+.ps-rerun-opt-title { font-size: 14.5px; font-weight: 600; color: var(--dsw-alias-label-primary); margin-bottom: 4px; }
+.ps-rerun-opt-body { font-size: 13px; color: var(--dsw-alias-label-dimmed); line-height: 1.55; margin-bottom: 12px; }
+.ps-rerun-fresh { background: var(--dsw-alias-state-error-primary); border-color: transparent; color: #fff; width: 100%; }
+.ps-rerun-fresh:hover { background: var(--dsw-alias-state-error-primary); filter: brightness(1.06); }
+.ps-rerun-input { width: 100%; min-height: 76px; }
+.ps-rerun-confirm { font-size: 14px; line-height: 1.6; padding: 12px 14px; border-radius: 8px; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); }
+.ps-rerun-confirm.danger { border-color: var(--dsw-alias-state-error-primary); color: var(--dsw-alias-state-error-primary); background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent); }
+.ps-rerun-instruction { font-size: 13px; color: var(--dsw-alias-label-dimmed); background: var(--dsw-alias-bg-layer-2); border-radius: 8px; padding: 10px 12px; word-break: break-word; }
+.ps-rerun-instruction-label { font-size: 12px; color: var(--dsw-alias-label-caption); margin-bottom: 4px; }
+.ps-rerun-confirm-btn { color: #fff !important; }
 
 /* ================= workbench ================= */
 /* The workbench must STRETCH inside whatever flex/block container hosts it

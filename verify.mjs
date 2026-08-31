@@ -470,6 +470,29 @@ test('L2 lifecycle: run.start prepares the prompt; /record tracks the run sessio
   assert.equal(list2.json.mas.find((m) => m.id === 'demo').status, 'idle')
 })
 
+test('L2 run.start: fresh wipes the unit root; continue keeps outputs and embeds the instruction', async () => {
+  const home = tempHome()
+  const { ctx, routes } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  writeMas(home, 'demo', SINGLE_DESCRIPTOR)
+  const ws = path.join(home, 'demo', 'workspace')
+  fs.writeFileSync(path.join(ws, 'run.json'), JSON.stringify({ status: 'completed' }))
+  fs.writeFileSync(path.join(ws, 'old.md'), '# old output')
+
+  const fresh = await call(routes, '/pomasa/run.start', 'POST', { masId: 'demo', mode: 'fresh' })
+  assert.equal(fresh.json.ok, true)
+  assert.equal(fs.existsSync(path.join(ws, 'old.md')), false, 'fresh wipes prior outputs')
+  assert.equal(fs.existsSync(path.join(ws, 'run.json')), false, 'fresh removes the run record')
+  assert.match(fresh.json.prompt, /从干净单元根开始/, 'fresh prompt states a clean slate')
+
+  fs.writeFileSync(path.join(ws, 'old.md'), '# again')
+  const cont = await call(routes, '/pomasa/run.start', 'POST', { masId: 'demo', mode: 'continue', instruction: '把第 3 章按国别分节' })
+  assert.equal(cont.json.ok, true)
+  assert.equal(fs.existsSync(path.join(ws, 'old.md')), true, 'continue keeps prior outputs')
+  assert.match(cont.json.prompt, /基于既有成果继续/, 'continue prompt states continuation')
+  assert.match(cont.json.prompt, /把第 3 章按国别分节/, 'researcher instruction is embedded')
+})
+
 test('L2 workspaces: the POMASA workspace is provisioned; /record stores run sessions', async () => {
   const home = tempHome()
   const { ctx, routes, workspaces } = mockCtx()
@@ -672,7 +695,7 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
     console.log('    (skip: react not found under ../deepseek-harness .pnpm)')
     return
   }
-  const src = buildClientSource(['api.js', 'md.js', 'i18n.js', 'components.js', 'pages.js']) +
+  const src = buildClientSource(['api.js', 'md.js', 'i18n.js', 'meme.js', 'components.js', 'pages.js']) +
     '\nglobalThis.__ps = { MasList, CreateMas, MasDetail, renderMarkdown, psEmpty, stageContractCards, __lang: langStore };'
   const ctx = vm.createContext({ React: react.React, window: {}, URL, setTimeout, clearTimeout })
   vm.runInContext('var h = React.createElement;\n' + src, ctx)
@@ -763,6 +786,39 @@ test('L2 lifecycle: mas.delete removes dir, registry, and active sessions', asyn
   assert.ok(!list.json.mas.some((m) => m.id === 'gone'))
   const ghost = await call(routes, '/pomasa/mas.delete', 'POST', { masId: 'nope' })
   assert.equal(ghost.code, 404)
+})
+
+test('L2 unit.add: declares a new planned unit in a multi MAS', async () => {
+  const home = tempHome()
+  const { ctx, routes } = mockCtx()
+  apply(ctx, { pomasaHome: home })
+  await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'multi', topic: 't', runMode: 'multi' })
+  // generation is external; hand-write the multi descriptor
+  const root = path.join(home, 'multi')
+  fs.mkdirSync(path.join(root, 'workspace'), { recursive: true })
+  fs.writeFileSync(path.join(root, 'pomasa.json'), JSON.stringify({
+    schema_version: 'obv-1', mas_id: 'multi', name: 'Multi',
+    work: { mode: 'multi', dimensions: ['country'], units: ['brazil'] },
+    stages: [{ index: 1, id: 'scan', title: 'Scan', agent: '01.scanner.md', contracts: [] }],
+  }, null, 2))
+  const before = await call(routes, '/pomasa/unit.list?masId=multi', 'GET')
+  assert.deepEqual(before.json.units.map((u) => u.key), ['brazil'])
+  const add = await call(routes, '/pomasa/unit.add', 'POST', { masId: 'multi', key: 'Korea' })
+  assert.equal(add.json.ok, true)
+  const korea = add.json.units.find((u) => u.key === 'korea')
+  assert.ok(korea && korea.planned && !korea.run, 'new unit must be planned, not run')
+  const persisted = JSON.parse(fs.readFileSync(path.join(root, 'pomasa.json'), 'utf8'))
+  assert.deepEqual(persisted.work.units, ['brazil', 'korea'])
+  // duplicate (case-normalized), invalid key, and single-mode MAS are rejected
+  const dup = await call(routes, '/pomasa/unit.add', 'POST', { masId: 'multi', key: 'BRAZIL' })
+  assert.equal(dup.json.ok, false)
+  const bad = await call(routes, '/pomasa/unit.add', 'POST', { masId: 'multi', key: '../escape' })
+  assert.equal(bad.json.ok, false)
+  await call(routes, '/pomasa/mas.create', 'POST', { projectId: 'single', topic: 't' })
+  fs.mkdirSync(path.join(home, 'single', 'workspace'), { recursive: true })
+  fs.writeFileSync(path.join(home, 'single', 'pomasa.json'), JSON.stringify({ work: { mode: 'single' }, stages: [] }, null, 2))
+  const single = await call(routes, '/pomasa/unit.add', 'POST', { masId: 'single', key: 'x' })
+  assert.equal(single.json.ok, false)
 })
 
 test('L2 blueprint.read: reads within MAS root, rejects escapes', async () => {

@@ -70,11 +70,13 @@ export function generationPrompt(skill, masId, masRoot) {
 }
 
 /** The prompt that starts a run session for one unit. */
-export function runPrompt(masRoot, unitRoot, unitKey) {
+export function runPrompt(masRoot, unitRoot, unitKey, opts) {
+  const continueNote = opts && opts.mode === 'continue'
+    ? `\n本次运行基于既有成果继续：保留单元根内已有产物，不要清空。严格按照研究者的指令决定保留、改写或删除哪些产物。研究者指令：${opts.instruction || '（无额外指令，在既有成果基础上正常推进）'}\n`
+    : '\n本次运行从干净单元根开始：不要保留、不要沿用上轮产物，按蓝图全新执行。\n'
   return `你是本 MAS 的编排者（Orchestrator）。本次运行单元：${unitKey ?? 'single'}。
 
-请打开 ${path.join(masRoot, 'agents', '00.orchestrator.md')}，严格按照该蓝图执行本次运行（按 OBV-03 协议创建并维护 ${path.join(unitRoot, 'run.json')}，按需调用各阶段子代理，各阶段按 OBV-01 维护其 index.json）。
-
+请打开 ${path.join(masRoot, 'agents', '00.orchestrator.md')}，严格按照该蓝图执行本次运行（按 OBV-03 协议创建并维护 ${path.join(unitRoot, 'run.json')}，按需调用各阶段子代理，各阶段按 OBV-01 维护其 index.json）。${continueNote}
 本次运行的单元根（运行沙箱）是：${unitRoot}
 运行期所有文件写入、包括运行笔记，都必须放在单元根内；不要尝试写单元根之外的路径（如 MAS 根的 wip/）。会话的工作目录是 POMASA 工作区，不等于单元根；所有读写请以单元根的绝对路径为准。
 不要提问，按流程执行。`

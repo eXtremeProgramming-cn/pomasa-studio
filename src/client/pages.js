@@ -215,6 +215,8 @@ function MasDetail(props) {
   const [genStatus, setGenStatus] = React.useState(null)
   const [busy, setBusy] = React.useState(false)
   const [notice, setNotice] = React.useState(null)
+  const [newUnit, setNewUnit] = React.useState('')
+  const [rerun, setRerun] = React.useState(null) // { key } when the rerun modal is open
 
   const refresh = React.useCallback(async () => {
     try {
@@ -259,24 +261,46 @@ function MasDetail(props) {
     }
   }
 
-  const startRun = async (key) => {
-    // Re-running overwrites whatever the unit already produced — confirm when a
-    // previous run record exists (single: unit root run.json; multi: that unit's).
-    const hasResults = key == null
-      ? !!(state && state.run)
-      : !!(((units || []).find((u) => u.key === key) || {}).run)
-    if (hasResults && !window.confirm(t('confirm.rerun'))) return
+  const unitHasResults = (key) => key == null
+    ? !!(state && state.run)
+    : !!(((units || []).find((u) => u.key === key) || {}).run)
+
+  // A unit that has never produced outputs runs directly (after a short
+  // confirm naming the topic and, for multi-unit MASes, the unit); one with
+  // existing outputs opens the rerun modal (full rerun vs. continue-with-
+  // instruction).
+  const startRun = (key) => {
+    if (unitHasResults(key)) { setRerun({ key }); return }
+    const name = (descriptor && (descriptor.name || descriptor.id)) || str(masId)
+    const message = key == null
+      ? t('run.confirm.single', { name })
+      : t('run.confirm.multi', { name, key })
+    if (!window.confirm(message)) return
+    requestRun(key, 'continue', '')
+  }
+
+  const requestRun = async (key, mode, instruction) => {
     setBusy(true)
     setNotice(null)
     try {
       // prepare on the host, then drive the run session through the client
-      const r = await api.startRun(masId, key)
+      const r = await api.startRun(masId, key, { mode, instruction })
       if (!r.ok) { setNotice({ kind: 'err', text: r.error || t('run.start.fail') }); return }
       const d = props.onRun ? await props.onRun(masId, r.unitKey, r.prompt) : { ok: false, error: t('run.drive.unavailable') }
       if (d.ok) { setNotice({ kind: 'ok', text: t('run.started') }); refresh() }
       else setNotice({ kind: 'err', text: d.error || t('run.start.fail') })
     } catch (e) { setNotice({ kind: 'err', text: String(e && e.message || e) }) }
     finally { setBusy(false) }
+  }
+
+  const addUnit = async () => {
+    const key = newUnit.trim()
+    if (!key || busy) return
+    setNotice(null)
+    const r = await api.unitAdd(masId, key)
+    setNewUnit('')
+    if (r.ok) { refresh(); setUnit(key); setStageSel(0); setArtifact(null); setViewer(null) }
+    else setNotice({ kind: 'err', text: r.error || t('unit.add.fail') })
   }
 
   const downloadMd = () => {
@@ -369,6 +393,10 @@ function MasDetail(props) {
 
     Array.isArray(units) && units.length > 1 ? h(psCard, null,
       h('div', { className: 'ps-card-title', style: { marginBottom: 10 } }, t('unit.label')),
+      h('div', { className: 'ps-unit-add' },
+        h(psInput, { value: newUnit, placeholder: t('unit.add.ph'), onChange: (e) => setNewUnit(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter') addUnit() }, style: { flex: 1, minWidth: 0 } }),
+        h(psBtn, { primary: true, onClick: addUnit, disabled: !newUnit.trim() }, t('unit.add')),
+      ),
       h('div', null, units.map((u) =>
         h('div', { key: str(u.key), className: 'ps-unit-row' + (u.key === unit ? ' on' : ''), onClick: () => { setUnit(u.key); setStageSel(0); setArtifact(null); setViewer(null) } },
           h('span', null, str(u.key)),
@@ -405,6 +433,7 @@ function MasDetail(props) {
 
     viewer ? h(ArtifactModal, { viewer, onClose: () => { setArtifact(null); setViewer(null) }, onDownload: downloadMd }) : null,
     bp ? h(BlueprintModal, { api, masId, path: bp.path, title: bp.title, stage: bp.index, onClose: () => setBp(null) }) : null,
+    rerun ? h(RerunModal, { unitKey: rerun.key, onClose: () => setRerun(null), onRun: (mode, instruction) => { setRerun(null); requestRun(rerun.key, mode, instruction) } }) : null,
     ),
   )
 }
@@ -456,6 +485,53 @@ function ArtifactModal(props) {
           : viewer.format === 'markdown'
             ? renderMarkdown(String(viewer.content || ''))
             : h('pre', { className: 'ps-pre' }, String(viewer.content || '')),
+      ),
+    ),
+  )
+}
+
+// Rerun chooser: a unit with existing outputs may be rerun from scratch
+// (destructive, prominent) or continued on top of its outputs following a
+// free-text instruction. Either path gets a second confirmation.
+function RerunModal(props) {
+  const { unitKey, onClose, onRun } = props
+  const [step, setStep] = React.useState('choose') // 'choose' | 'confirm'
+  const [mode, setMode] = React.useState('fresh')
+  const [text, setText] = React.useState('')
+  const choose = (m) => { setMode(m); setStep('confirm') }
+  const confirmRun = () => onRun(mode, text)
+  return h('div', { className: 'ps-modal-backdrop', onClick: onClose },
+    h('div', { className: 'ps-modal', onClick: (e) => e.stopPropagation() },
+      h('div', { className: 'ps-modal-head' },
+        h('span', { style: { fontWeight: 600, fontSize: 15 } }, t('rerun.title')),
+        h('span', { className: 'spacer', style: { flex: 1 } }),
+        h(psBtn, { ghost: true, onClick: onClose }, '✕'),
+      ),
+      h('div', { className: 'ps-modal-body' },
+        step === 'choose' ? h('div', { className: 'ps-rerun' },
+          h('div', { className: 'ps-rerun-opt' },
+            h('div', { className: 'ps-rerun-opt-title' }, t('rerun.fresh')),
+            h('div', { className: 'ps-rerun-opt-body' }, t('rerun.fresh.body')),
+            h(psBtn, { className: 'ps-btn-danger ps-rerun-fresh', onClick: () => choose('fresh') }, t('rerun.fresh.go')),
+          ),
+          h('div', { className: 'ps-rerun-opt' },
+            h('div', { className: 'ps-rerun-opt-title' }, t('rerun.continue')),
+            h('div', { className: 'ps-rerun-opt-body' }, t('rerun.continue.body')),
+            h(psTextarea, { className: 'ps-rerun-input', value: text, placeholder: t('rerun.ph'), onChange: (e) => setText(e.target.value) }),
+            h(psBtn, { primary: true, disabled: !text.trim(), onClick: () => choose('continue') }, t('rerun.continue.go')),
+          ),
+        ) : h('div', { className: 'ps-rerun' },
+          h('div', { className: 'ps-rerun-confirm' + (mode === 'fresh' ? ' danger' : '') },
+            mode === 'fresh' ? t('rerun.confirm.fresh') : t('rerun.confirm.continue')),
+          mode === 'continue' && text.trim() ? h('div', { className: 'ps-rerun-instruction' },
+            h('div', { className: 'ps-rerun-instruction-label' }, t('rerun.instruction.label')),
+            str(text)) : null,
+          h('div', { className: 'ps-toolbar', style: { marginTop: 18, justifyContent: 'flex-end' } },
+            h(psBtn, { ghost: true, onClick: () => setStep('choose') }, t('rerun.back')),
+            h(psBtn, { ghost: true, onClick: onClose }, t('rerun.cancel')),
+            h(psBtn, { primary: true, className: mode === 'fresh' ? 'ps-btn-danger ps-rerun-confirm-btn' : '', onClick: confirmRun }, t('rerun.go')),
+          ),
+        ),
       ),
     ),
   )

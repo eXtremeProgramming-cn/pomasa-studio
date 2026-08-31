@@ -28,6 +28,7 @@ const ROUTES = [
   'generation.log',
   'mas.delete',
   'blueprint.read',
+  'unit.add',
   'meta',
   'record',
 ]
@@ -248,24 +249,33 @@ export function apply(ctx, config = {}) {
    * the agents registry can answer, null when it can't (callers fall back to
    * the in-memory signal).
    */
-  function isAgentAlive(sid) {
+  async function isAgentAlive(sid) {
     if (!sid) return null
     try {
       const agents = ctx.get?.('agents')
-      if (agents && typeof agents.get === 'function') {
-        const a = agents.get(sid)
-        return !!(a && a.status === 'running')
+      const registryKnown = agents && typeof agents.get === 'function'
+      const a = registryKnown ? agents.get(sid) : null
+      if (a && a.status === 'running') return true
+      // An orchestrator rests in idle while its sub-agents run, so a parent with
+      // a live child is still an active run. Mirror dsh's own subagent catalog.
+      const subs = ctx.get?.('subagents')
+      if (subs && typeof subs.listChildren === 'function') {
+        try {
+          const rows = await subs.listChildren(sid)
+          if (Array.isArray(rows) && rows.some((r) => r && r.activity === 'running')) return true
+        } catch { /* catalog query failure is not fatal */ }
       }
+      return registryKnown ? !!(a && a.status === 'running') : null
     } catch { /* ignore */ }
     return null
   }
 
-  function masSummary(m) {
+  async function masSummary(m) {
     const root = masDir(home(), m.id)
     const descriptor = loadDescriptor(root)
     const generated = !!descriptor && isGenerationComplete(m.id)
     let status
-    if (generated === false && ((m.lastGenSessionId && isAgentAlive(m.lastGenSessionId)) || genSessions.has(m.id))) {
+    if (generated === false && ((m.lastGenSessionId && (await isAgentAlive(m.lastGenSessionId))) || genSessions.has(m.id))) {
       // a generation session is alive and not complete
       status = 'generating'
     } else if (!generated) {
@@ -278,7 +288,7 @@ export function apply(ctx, config = {}) {
       // live — the in-memory map and run.json can both be stale after an
       // interruption, so the agents registry is authoritative.
       const runSid = Object.values(m.lastRunSessionIds || {})[0] || null
-      const alive = runSid ? isAgentAlive(runSid) : null
+      const alive = runSid ? (await isAgentAlive(runSid)) : null
       if (alive === true) {
         status = 'running'
       } else {
@@ -420,11 +430,15 @@ export function apply(ctx, config = {}) {
     // run session is alive.
     const reg = loadRegistry(config)
     const m = reg.mas.find((x) => x.id === masId) || {}
-    if (m.lastGenSessionId && isAgentAlive(m.lastGenSessionId)) {
+    if (m.lastGenSessionId && (await isAgentAlive(m.lastGenSessionId))) {
       return { ok: false, error: 'MAS 正在生成中，生成完成前不能运行' }
     }
-    if (m.lastRunSessionIds && Object.values(m.lastRunSessionIds).some((sid) => isAgentAlive(sid))) {
-      return { ok: false, error: '已有运行会话进行中，请等待完成或先取消' }
+    if (m.lastRunSessionIds && Object.values(m.lastRunSessionIds).length) {
+      for (const sid of Object.values(m.lastRunSessionIds)) {
+        if (await isAgentAlive(sid)) {
+          return { ok: false, error: '已有运行会话进行中，请等待完成或先取消' }
+        }
+      }
     }
 
     const descriptor = loadDescriptor(masDir(home(), masId))
@@ -436,11 +450,19 @@ export function apply(ctx, config = {}) {
       return { ok: false, error: targets.length === 0 ? '没有可运行的单元' : '一次只运行一个单元，请选择要运行的单元' }
     }
     const { key, root } = targets[0]
+    const mode = body.mode === 'fresh' ? 'fresh' : 'continue'
+    const instruction = String(body.instruction || '').trim()
+    // A full rerun wipes every prior output so the run starts from a clean
+    // slate; continue keeps the unit root so the orchestrator can work on the
+    // existing outputs per the researcher's instruction.
+    if (mode === 'fresh' && fs.existsSync(root) && fs.readdirSync(root).length > 0) {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
     fs.mkdirSync(root, { recursive: true })
     // Host only PREPARES the run: the session is created by the CLIENT through
     // the workspace flow (so it is accounted in the POMASA workspace) and driven
     // by sessions.prompt. The host returns the orchestrator prompt.
-    return { ok: true, unitKey: key, prompt: runPrompt(masDir(home(), masId), root, key) }
+    return { ok: true, unitKey: key, mode, prompt: runPrompt(masDir(home(), masId), root, key, { mode, instruction }) }
   }
 
   function resolveRunTargets(body, descriptor) {
@@ -468,7 +490,9 @@ export function apply(ctx, config = {}) {
       // ---- reads ----
       if (sub === '/mas.list') {
         const reg = loadRegistry(config)
-        return jsonResponse(res, 200, { ok: true, mas: reg.mas.map(masSummary) })
+        const list = []
+        for (const m of reg.mas) list.push(await masSummary(m))
+        return jsonResponse(res, 200, { ok: true, mas: list })
       }
 
       if (sub === '/meta' && req.method === 'GET') {
@@ -500,7 +524,7 @@ export function apply(ctx, config = {}) {
           upsertMas(config, { id: masId, status: 'idle' })
           genSessions.delete(masId)
           status = 'completed'
-        } else if ((m.lastGenSessionId && isAgentAlive(m.lastGenSessionId)) || genSessions.has(masId)) {
+        } else if ((m.lastGenSessionId && (await isAgentAlive(m.lastGenSessionId))) || genSessions.has(masId)) {
           status = 'generating'
         } else {
           // a generation was attempted (session started and is gone, or record
@@ -533,7 +557,7 @@ export function apply(ctx, config = {}) {
           const ur = m && m.lastRunSessionIds || {}
           const key = descriptor.work.mode === 'multi' ? (q.unit || null) : 'single'
           const runSid = key ? (ur[key] || null) : (Object.values(ur)[0] || null)
-          if (runSid && isAgentAlive(runSid) === false) st.run.status = 'failed'
+          if (runSid && (await isAgentAlive(runSid)) === false) st.run.status = 'failed'
         }
         return jsonResponse(res, 200, { ok: true, generated: true, ...st })
       }
@@ -693,6 +717,31 @@ export function apply(ctx, config = {}) {
           })
         }
         return jsonResponse(res, 200, { ok: true })
+      }
+
+      if (sub === '/unit.add' && req.method === 'POST') {
+        const body = await readBody(req)
+        const masId = String(body.masId || '')
+        const key = String(body.key || '').trim().toLowerCase()
+        if (!hasMas(masId)) return jsonResponse(res, 404, { ok: false, error: 'no such mas' })
+        const root = masDir(home(), masId)
+        const descriptor = loadDescriptor(root)
+        if (!descriptor) return jsonResponse(res, 400, { ok: false, error: 'mas not generated yet' })
+        if (descriptor.work.mode !== 'multi') return jsonResponse(res, 400, { ok: false, error: 'single-mode MAS has no units' })
+        if (!/^[a-z0-9][a-z0-9._-]*$/.test(key) || key === '.' || key === '..') {
+          return jsonResponse(res, 400, { ok: false, error: 'invalid unit key' })
+        }
+        if (unitListing(config, descriptor, masId).some((u) => u.key === key)) {
+          return jsonResponse(res, 409, { ok: false, error: 'unit already exists' })
+        }
+        // Declare the unit in the descriptor: it becomes a planned, not-yet-run
+        // unit (OBV-02). The physical unit root is created when it is run.
+        const raw = JSON.parse(fs.readFileSync(path.join(root, 'pomasa.json'), 'utf8'))
+        if (!raw.work) raw.work = {}
+        if (!Array.isArray(raw.work.units)) raw.work.units = []
+        raw.work.units.push(key)
+        fs.writeFileSync(path.join(root, 'pomasa.json'), JSON.stringify(raw, null, 2) + '\n')
+        return jsonResponse(res, 200, { ok: true, units: unitListing(config, loadDescriptor(root), masId) })
       }
 
       if (sub === '/mas.delete' && req.method === 'POST') {
