@@ -247,6 +247,17 @@ test('L1 artifact.read: honors unit-root guard', () => {
   assert.throws(() => readArtifact({ pomasaHome: home }, 'demo', null, '../../../etc/passwd'), /escapes/)
 })
 
+test('L1 export: markdown to docx/pdf via pure js (CJK)', async () => {
+  const { mdToDocx, mdToPdf } = await import(path.join(ROOT, 'src/host/core/export.js'))
+  const md = '# 标题\n\n正文含**加粗**、中文、脚注[^1] 和表格。\n\n[^1]: 来源说明。\n\n| A | B |\n|---|---|\n| 1 | 中 |'
+  const docx = await mdToDocx(md)
+  assert.equal(Buffer.from(docx.subarray(0, 2)).toString(), 'PK', 'docx is a zip container')
+  assert.ok(docx.length > 1000, 'docx has content')
+  const pdf = await mdToPdf(md)
+  assert.match(Buffer.from(pdf.subarray(0, 8)).toString(), /%PDF-/, 'pdf header')
+  assert.ok(pdf.length > 1000, 'pdf has content')
+})
+
 test('L1 mcp-servers: seeded yml parses into mcp-client configs', async () => {
   const { readMcpServerConfigs, __internals } = await import(path.join(ROOT, 'src/host/core/mcp-servers.js'))
   const file = path.join(tempHome(), 'mcp.servers.yml')

@@ -35,6 +35,7 @@ function createApi() {
       instruction: (opts && opts.instruction) || '',
     }) }),
     unitAdd: (masId, key) => request('/pomasa/unit.add', { method: 'POST', body: JSON.stringify({ masId, key }) }),
+    exportMd: (content, format) => fetch('/pomasa/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, format }) }).then((r) => (r.ok ? r.blob() : null)),
     createMas: (fields) => request('/pomasa/mas.create', { method: 'POST', body: JSON.stringify(fields) }),
     recordSession: (masId, kind, unit, sessionId) => request('/pomasa/record', { method: 'POST', body: JSON.stringify({ masId, kind, unit: unit || 'single', sessionId }) }),
     deleteMas: (masId) => request('/pomasa/mas.delete', { method: 'POST', body: JSON.stringify({ masId }) }),

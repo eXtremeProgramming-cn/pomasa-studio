@@ -9,6 +9,7 @@ import { writeUserInput } from './core/prompt.js'
 import { ensureSkill, generationPrompt, runPrompt } from './core/skill.js'
 import { ensurePomasaHome } from './core/pomasa-home.js'
 import { loadMcpServers } from './mcp-loader.js'
+import { mdToDocx, mdToPdf } from './core/export.js'
 
 export const name = 'pomasa-studio'
 export const inject = ['webServer', 'agentLoop', 'tools']
@@ -30,6 +31,7 @@ const ROUTES = [
   'mas.delete',
   'blueprint.read',
   'unit.add',
+  'export',
   'meta',
   'record',
 ]
@@ -718,6 +720,24 @@ export function apply(ctx, config = {}) {
           })
         }
         return jsonResponse(res, 200, { ok: true })
+      }
+
+      if (sub === '/export' && req.method === 'POST') {
+        const body = await readBody(req)
+        const format = body.format === 'pdf' ? 'pdf' : body.format === 'docx' ? 'docx' : null
+        if (format === null) return jsonResponse(res, 400, { ok: false, error: 'format must be pdf or docx' })
+        const content = String(body.content || '')
+        try {
+          const buf = format === 'pdf' ? await mdToPdf(content) : await mdToDocx(content)
+          res.writeHead(200, {
+            'content-type': format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'content-disposition': `attachment; filename="pomasa.${format}"`,
+          })
+          res.end(Buffer.isBuffer(buf) ? buf : Buffer.from(buf))
+        } catch (e) {
+          res.writeHead(500, { 'content-type': 'application/json; charset=utf-8' })
+          res.end(JSON.stringify({ ok: false, error: 'export failed: ' + String((e && e.message) || e) }))
+        }
       }
 
       if (sub === '/unit.add' && req.method === 'POST') {

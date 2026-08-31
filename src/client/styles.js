@@ -214,6 +214,24 @@ export const CSS = `
 .ps-rerun-confirm-btn { background: var(--dsw-alias-state-error-primary) !important; border-color: transparent !important; color: var(--dsw-alias-label-primary-foreground) !important; }
 .ps-rerun-confirm-btn:not(:disabled):hover { background: var(--dsw-alias-state-error-primary) !important; filter: brightness(1.06); }
 
+/* ---------- create form extras ---------- */
+.ps-req { color: var(--dsw-alias-state-error-primary); font-weight: 700; }
+.ps-patterns { display: flex; flex-direction: column; gap: 8px; }
+.ps-pattern { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; cursor: pointer; background: var(--dsw-alias-bg-layer-1); transition: border-color 140ms ease, background 140ms ease; }
+.ps-pattern.on { border-color: var(--dsw-alias-brand-primary); background: color-mix(in srgb, var(--dsw-alias-brand-primary) 6%, transparent); }
+.ps-pattern input { accent-color: var(--dsw-alias-brand-primary); margin-top: 2px; flex: none; }
+.ps-pattern-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps-pattern-title { font-size: 13.5px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+.ps-pattern-desc { font-size: 12.5px; color: var(--dsw-alias-label-secondary); }
+.ps-pattern.must { cursor: default; }
+.ps-pattern.must .ps-pattern-title { color: var(--dsw-alias-label-secondary); }
+.ps-pattern-nec { margin-left: auto; flex: none; font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-caption); }
+.ps-pattern-nec.must { color: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-border-l3); font-weight: 600; }
+.ps-pattern-nec.recommended { color: var(--dsw-alias-label-secondary); }
+.ps-patterns-open { display: flex; align-items: center; gap: 12px; }
+.ps-patterns-summary { flex: 1; min-width: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.ps-patterns-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 52vh; overflow-y: auto; padding-right: 4px; }
+
 /* ================= workbench ================= */
 /* The workbench must STRETCH inside whatever flex/block container hosts it
    (shell panel or the session view area): as a flex item, default

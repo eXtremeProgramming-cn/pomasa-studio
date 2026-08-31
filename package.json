@@ -16,7 +16,8 @@
     "pomasa-home/",
     "scripts/bundle-client.mjs",
     "cordis.patch.yml",
-    "README.md"
+    "README.md",
+    "assets/"
   ],
   "dsh": {
     "bundle": {
@@ -51,5 +52,11 @@
   "homepage": "https://github.com/eXtremeProgramming-cn/pomasa-studio",
   "bugs": {
     "url": "https://github.com/eXtremeProgramming-cn/pomasa-studio/issues"
+  },
+  "dependencies": {
+    "docx": "^9.7.1",
+    "markdown-it": "^15.0.1",
+    "markdown-it-footnote": "^4.0.0",
+    "pdfkit": "^0.20.2"
   }
 }

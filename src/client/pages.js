@@ -2,12 +2,51 @@
 // str() guards every dynamic text node so a non-string value from index.json or
 // run.json degrades to text instead of crashing the render tree.
 
+// Trigger a browser download for a Blob produced by the host export endpoint.
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 function str(v) {
   if (v === null || v === undefined) return ''
   if (typeof v === 'string') return v
   if (typeof v === 'number') return String(v)
   try { return JSON.stringify(v) } catch { return String(v) }
 }
+
+// The full POMASA pattern catalog, so the researcher can see every switch and
+// its necessity. Must patterns are locked on (the generator always applies
+// them); recommended and optional ones are togglable. Bilingual here rather
+// than in i18n keys: this is catalog content, not chrome copy.
+const CATALOG_PATTERNS = [
+  { id: 'COR-01', zh: '提示词定义的智能体', en: 'Prompt-Defined Agent', zhD: 'agent 即自然语言蓝图', enD: 'agents are natural-language blueprints', nec: 'must' },
+  { id: 'COR-02', zh: '智能运行时', en: 'Intelligent Runtime', zhD: '运行时解释蓝图执行', enD: 'runtime interprets blueprints', nec: 'must' },
+  { id: 'STR-01', zh: '参考数据配置', en: 'Reference Data Configuration', zhD: '领域知识与 agent 逻辑分离', enD: 'separate domain knowledge from agent logic', nec: 'must' },
+  { id: 'STR-06', zh: '方法论指导', en: 'Methodological Guidance', zhD: '研究方法内嵌进蓝图', enD: 'embed research method in blueprints', nec: 'must' },
+  { id: 'BHV-02', zh: '忠实智能体实例化', en: 'Faithful Agent Instantiation', zhD: '子代理严格按蓝图执行', enD: 'subagents follow their blueprint', nec: 'must' },
+  { id: 'QUA-03', zh: '可验证数据溯源', en: 'Verifiable Data Lineage', zhD: '产物可回溯到来源', enD: 'outputs traceable to sources', nec: 'must' },
+  { id: 'STR-02', zh: '文件系统数据总线', en: 'Filesystem Data Bus', zhD: '阶段间靠文件传数据', enD: 'stages exchange data via files', nec: 'recommended' },
+  { id: 'STR-03', zh: '工作区隔离', en: 'Workspace Isolation', zhD: '运行沙箱彼此隔离', enD: 'isolated run sandboxes', nec: 'recommended' },
+  { id: 'STR-04', zh: '业务驱动智能体设计', en: 'Business-Driven Agent Design', zhD: '按研究维度切分 agent', enD: 'split agents along research dimensions', nec: 'recommended' },
+  { id: 'STR-05', zh: '可组合文档装配', en: 'Composable Document Assembly', zhD: '分节撰写后统一装配', enD: 'assemble report from sections', nec: 'recommended' },
+  { id: 'STR-07', zh: '反向工程研究问题', en: 'Reverse-Engineered Research Questions', zhD: '从目标结论倒推研究问题', enD: 'derive questions from target conclusions', nec: 'recommended' },
+  { id: 'STR-08', zh: 'Pandoc 就绪 Markdown', en: 'Pandoc-Ready Markdown', zhD: '脚注引注，输出可直接转换', enD: 'footnote citations, conversion-ready output', nec: 'recommended' },
+  { id: 'STR-09', zh: '交付物导出管线', en: 'Deliverable Export Pipeline', zhD: '产出 DOCX/PDF 交付物', enD: 'export docx/pdf deliverables', nec: 'recommended' },
+  { id: 'BHV-01', zh: '编排式智能体流水线', en: 'Orchestrated Agent Pipeline', zhD: '阶段流水线逐级推进', enD: 'stages advance through the pipeline', nec: 'recommended' },
+  { id: 'BHV-05', zh: '扎实的网络研究', en: 'Grounded Web Research', zhD: '抓原文再引用，不轻信摘要', enD: 'fetch sources, never trust snippets', nec: 'recommended' },
+  { id: 'QUA-01', zh: '内嵌质量标准', en: 'Embedded Quality Standards', zhD: '质量标准写进蓝图自检', enD: 'quality criteria embedded in blueprints', nec: 'recommended' },
+  { id: 'BHV-03', zh: '并行实例执行', en: 'Parallel Instance Execution', zhD: '多单元并行批量运行', enD: 'run units concurrently in batches', nec: 'optional' },
+  { id: 'BHV-04', zh: '渐进式数据精炼', en: 'Progressive Data Refinement', zhD: '同一产物多轮迭代改进', enD: 'iterate on the same outputs across passes', nec: 'optional' },
+  { id: 'BHV-06', zh: '可配置工具绑定', en: 'Configurable Tool Binding', zhD: '运行时按环境换工具', enD: 'swap tools per runtime environment', nec: 'optional' },
+  { id: 'QUA-02', zh: '分层质量保障', en: 'Layered Quality Assurance', zhD: '多阶段交叉校验', enD: 'cross-check across stages', nec: 'optional' },
+]
 
 function MasList(props) {
   const api = props.api
@@ -87,8 +126,10 @@ function CreateMas(props) {
     topic: '', ideas: '', dataSources: t('create.default.dataSources'), refs: '',
     analysis: '', reportFormat: t('create.default.reportFormat'), reportStructure: '',
     runMode: 'single', runDimensions: '', runUnits: '',
-    patterns: '', qaLevel: 'Standard', other: '',
+    qaLevel: 'Standard', other: '',
   }))
+  const [patterns, setPatterns] = React.useState([]) // selected optional patterns
+  const [patternsOpen, setPatternsOpen] = React.useState(false)
   // The default values are Studio-provided text, so an untouched default follows
   // the UI language; once the user edits a field it is their content and stays.
   const langRef = React.useRef(lang)
@@ -115,6 +156,9 @@ function CreateMas(props) {
       const fields = Object.assign({}, f, {
         refs: f.refs.split('\n').map((s) => s.trim()).filter(Boolean),
         runUnits: f.runUnits.split('\n').map((s) => s.trim()).filter(Boolean),
+        patterns: patterns.length
+          ? CATALOG_PATTERNS.filter((x) => patterns.includes(x.id)).map((x) => x.id + ' ' + (lang === 'en' ? x.en : x.zh)).join('、')
+          : '',
       })
       const r = await api.createMas(fields)
       if (!r.ok) { setError(r.error || t('create.failed')); return }
@@ -148,23 +192,23 @@ function CreateMas(props) {
 
     h(psCard, null,
       h('div', { className: 'ps-form-row' },
-        psField({ label: t('field.projectId') }, h(psInput, { value: f.projectId, onChange: set('projectId'), placeholder: t('ph.projectId') })),
+        psField({ label: h('span', null, t('field.projectId'), h('span', { className: 'ps-req' }, ' *')) }, h(psInput, { value: f.projectId, onChange: set('projectId'), placeholder: t('ph.projectId') })),
         psField({ label: t('field.name') }, h(psInput, { value: f.name, onChange: set('name'), placeholder: t('ph.name') })),
       ),
       h('div', { className: 'ps-form-row' },
         psField({ label: t('field.language') }, h(psInput, { value: f.language, onChange: set('language') })),
         psField({ label: t('field.reportLanguage') }, h(psInput, { value: f.reportLanguage, onChange: set('reportLanguage') })),
       ),
-      psField({ label: t('field.topic'), hint: t('field.topic.hint') },
+      psField({ label: h('span', null, t('field.topic'), h('span', { className: 'ps-req' }, ' *')), hint: t('field.topic.hint') },
         h(psTextarea, { value: f.topic, onChange: set('topic'), placeholder: t('ph.topic') })),
       psField({ label: t('field.ideas') }, h(psTextarea, { value: f.ideas, onChange: set('ideas') })),
-      psField({ label: t('field.dataSources') }, h(psInput, { value: f.dataSources, onChange: set('dataSources') })),
       psField({ label: t('field.refs') }, h(psTextarea, { value: f.refs, onChange: set('refs') })),
       psField({ label: t('field.analysis') }, h(psTextarea, { value: f.analysis, onChange: set('analysis') })),
       h('div', { className: 'ps-form-row' },
+        psField({ label: t('field.dataSources') }, h(psInput, { value: f.dataSources, onChange: set('dataSources') })),
         psField({ label: t('field.reportFormat') }, h(psInput, { value: f.reportFormat, onChange: set('reportFormat') })),
-        psField({ label: t('field.reportStructure') }, h(psInput, { value: f.reportStructure, onChange: set('reportStructure') })),
       ),
+      psField({ label: t('field.reportStructure') }, h(psTextarea, { value: f.reportStructure, onChange: set('reportStructure'), style: { minHeight: 96 } })),
 
       h('div', { className: 'ps-form-row' },
         psField({ label: t('field.runMode'), hint: t('field.runMode.hint') },
@@ -180,20 +224,64 @@ function CreateMas(props) {
       f.runMode === 'multi' ?
         psField({ label: t('field.runUnits') }, h(psTextarea, { value: f.runUnits, onChange: set('runUnits') })) : null,
 
-      h('div', { className: 'ps-form-row' },
-        psField({ label: t('field.qaLevel') },
-          h('select', { className: 'ps-select', value: f.qaLevel, onChange: set('qaLevel') },
-            h('option', { value: 'Simple' }, 'Simple'),
-            h('option', { value: 'Standard' }, t('qa.standard')),
-            h('option', { value: 'Strict' }, 'Strict'),
-          )),
-        psField({ label: t('field.patterns') }, h(psInput, { value: f.patterns, onChange: set('patterns'), placeholder: t('ph.patterns') })),
-      ),
+      psField({ label: t('field.qaLevel') },
+        h('select', { className: 'ps-select', value: f.qaLevel, onChange: set('qaLevel') },
+          h('option', { value: 'Simple' }, t('qa.simple')),
+          h('option', { value: 'Standard' }, t('qa.standard')),
+          h('option', { value: 'Strict' }, t('qa.strict')),
+        )),
+      psField({ label: t('field.patterns') }, h('div', { className: 'ps-patterns-open' },
+        h('div', { className: 'ps-patterns-summary' },
+          patterns.length
+            ? t('patterns.selected', { n: patterns.length }) + '：' + CATALOG_PATTERNS.filter((x) => patterns.includes(x.id)).map((x) => x.id).join('、')
+            : t('patterns.none')),
+        h(psBtn, { primary: true, onClick: () => setPatternsOpen(true) }, t('patterns.open')),
+      )),
       psField({ label: t('field.other') }, h(psTextarea, { value: f.other, onChange: set('other') })),
 
       h('div', { className: 'ps-toolbar', style: { marginBottom: 0, marginTop: 8 } },
           h(psBtn, { primary: true, disabled: busy || !f.projectId.trim() || !f.topic.trim(), onClick: submit }, busy ? t('create.busy') : t('create.submit')),
           h('span', { className: 'ps-muted' }, t('create.output.note')),
+        ),
+      ),
+      patternsOpen ? h(PatternsModal, { patterns, onClose: () => setPatternsOpen(false), onApply: (next) => { setPatterns(next); setPatternsOpen(false) } }) : null,
+    ),
+  )
+}
+
+// Two-column pattern picker in a modal: full catalog with necessity tags, must
+// patterns locked on. Draft state; applying writes the selection back.
+function PatternsModal(props) {
+  const { patterns, onClose, onApply } = props
+  const [draft, setDraft] = React.useState(patterns)
+  const toggle = (id) => setDraft((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  const en = langStore.val === 'en'
+  const necLabel = (n) => en ? ({ must: 'Always', recommended: 'Recommended', optional: 'Optional' })[n] : ({ must: '必选', recommended: '推荐', optional: '可选' })[n]
+  return h('div', { className: 'ps-modal-backdrop', onClick: onClose },
+    h('div', { className: 'ps-modal ps-modal-wide', onClick: (e) => e.stopPropagation() },
+      h('div', { className: 'ps-modal-head' },
+        h('span', { style: { fontWeight: 600, fontSize: 15 } }, t('field.patterns')),
+        h('span', { className: 'spacer', style: { flex: 1 } }),
+        h(psBtn, { ghost: true, onClick: onClose }, '✕'),
+      ),
+      h('div', { className: 'ps-modal-body' },
+        h('div', { className: 'ps-patterns-grid' },
+          CATALOG_PATTERNS.map((p) => {
+            const locked = p.nec === 'must'
+            const on = locked || draft.includes(p.id)
+            return h('label', { key: p.id, className: 'ps-pattern' + (on ? ' on' : '') + (locked ? ' must' : '') },
+              h('input', { type: 'checkbox', disabled: locked, checked: on, onChange: () => toggle(p.id) }),
+              h('span', { className: 'ps-pattern-body' },
+                h('span', { className: 'ps-pattern-title' }, p.id + ' ' + (en ? p.en : p.zh)),
+                h('span', { className: 'ps-pattern-desc' }, en ? p.enD : p.zhD),
+              ),
+              h('span', { className: 'ps-pattern-nec ' + p.nec }, necLabel(p.nec)),
+            )
+          }),
+        ),
+        h('div', { className: 'ps-toolbar', style: { marginTop: 16, justifyContent: 'flex-end' } },
+          h(psBtn, { ghost: true, onClick: onClose }, t('create.cancel')),
+          h(psBtn, { primary: true, onClick: () => onApply(draft) }, t('patterns.apply')),
         ),
       ),
     ),
@@ -302,6 +390,12 @@ function MasDetail(props) {
     setNewUnit('')
     if (r.ok) { refresh(); setUnit(key); setStageSel(0); setArtifact(null); setViewer(null) }
     else setNotice({ kind: 'err', text: r.error || t('unit.add.fail') })
+  }
+
+  const exportFile = async (content, format, base) => {
+    const blob = await api.exportMd(content, format)
+    if (!blob) { setNotice({ kind: 'err', text: t('export.fail') }); return }
+    downloadBlob(blob, (base || 'pomasa') + '.' + format)
   }
 
   const downloadMd = () => {
@@ -438,14 +532,15 @@ function MasDetail(props) {
       stageContractCards(stage, unit, api, openArtifact, artifact, (p) => api.artifactHead(masId, unit, p)),
     ) : h(psEmpty, { title: t('choose.stage') }),
 
-    viewer ? h(ArtifactModal, { viewer, onClose: () => { setArtifact(null); setViewer(null) }, onDownload: downloadMd }) : null,
-    bp ? h(BlueprintModal, { api, masId, path: bp.path, title: bp.title, stage: bp.index, onClose: () => setBp(null) }) : null,
+    viewer ? h(ArtifactModal, { viewer, onClose: () => { setArtifact(null); setViewer(null) }, onDownload: downloadMd, onExport: exportFile }) : null,
+    bp ? h(BlueprintModal, { api, masId, path: bp.path, title: bp.title, stage: bp.index, onClose: () => setBp(null), onExport: exportFile }) : null,
     rerun ? h(RerunModal, { unitKey: rerun.key, onClose: () => setRerun(null), onRun: (mode, instruction) => { setRerun(null); requestRun(rerun.key, mode, instruction) } }) : null,
     ),
   )
 }
 
 function BlueprintModal(props) {
+  const { onExport } = props
   const [data, setData] = React.useState(null)
   const [err, setErr] = React.useState(null)
   React.useEffect(() => {
@@ -460,6 +555,8 @@ function BlueprintModal(props) {
       h('div', { className: 'ps-modal-head' },
         h('span', { style: { fontWeight: 600, fontSize: 15 } }, str(props.title) + ' · ' + t('modal.blueprint')),
         h('span', { className: 'spacer', style: { flex: 1 } }),
+        onExport && data && data.format === 'markdown' ? h(psBtn, { ghost: true, onClick: () => onExport(str(data.content), 'pdf', str(props.title) || 'blueprint') }, t('export.pdf')) : null,
+        onExport && data && data.format === 'markdown' ? h(psBtn, { ghost: true, onClick: () => onExport(str(data.content), 'docx', str(props.title) || 'blueprint') }, t('export.docx')) : null,
         h(psBtn, { ghost: true, onClick: props.onClose }, '✕'),
       ),
       h('div', { className: 'ps-modal-body' },
@@ -476,14 +573,16 @@ function BlueprintModal(props) {
 // Artifact viewer as a modal — the artifacts list stays full-width; clicking an
 // artifact opens its content in a wide dialog (same form as the blueprint modal).
 function ArtifactModal(props) {
-  const { viewer, onClose, onDownload } = props
+  const { viewer, onClose, onDownload, onExport } = props
+  const exportBase = (str(viewer.path).split('/').pop() || 'artifact').replace(/\.md$/i, '')
   return h('div', { className: 'ps-modal-backdrop', onClick: onClose },
     h('div', { className: 'ps-modal ps-modal-wide', onClick: (e) => e.stopPropagation() },
       h('div', { className: 'ps-modal-head' },
         h('span', { style: { flex: 1, fontWeight: 600, fontSize: 15, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, str(viewer.path)),
         h('span', { className: 'ps-muted' }, str(viewer.format)),
         h(psBtn, { ghost: true, onClick: onDownload }, t('artifact.download')),
-        h(psBtn, { ghost: true, disabled: true, title: t('artifact.export.tip') }, t('artifact.export')),
+        onExport ? h(psBtn, { ghost: true, onClick: () => onExport(str(viewer.content), 'pdf', exportBase) }, t('export.pdf')) : null,
+        onExport ? h(psBtn, { ghost: true, onClick: () => onExport(str(viewer.content), 'docx', exportBase) }, t('export.docx')) : null,
         h(psBtn, { ghost: true, onClick: onClose }, '✕'),
       ),
       h('div', { className: 'ps-modal-body ps-artifact-body' },
