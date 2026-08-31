@@ -23,13 +23,21 @@ POMASA 的核心架构主张：一套 MAS 不是程序，而是一组声明。ag
 - ~/.pomasa/skills/<version>/ 是只读的生成器 skill 快照。
 
 ## 上网工具
-大模型缺省的搜索和网页获取工具通常比较难用且贵。建议可以安装使用下列MCP工具替代缺省的上网工具：
+大模型缺省的搜索和网页获取工具通常比较难用且贵。建议按运行环境安装并启用下列 MCP 工具上网：
 
 - **crawl4ai**（网页全文抓取首选，工具形如 `mcp__crawl4ai__read_url`）：https://github.com/gigix/crawl4ai-mcp-server
 - **serper**（Google 搜索，工具形如 `mcp__serper-search__google_search`）：https://serper.dev
 - **oxylabs**（网页抓取系列，工具形如 `mcp__oxylabs__universal_scraper`、`mcp__oxylabs__ai_search`）：https://oxylabs.io
 
-**注意**：搜索摘要不可信，必须抓原网页全文后再引用（BHV-05）。
+MCP 工具以 `mcp__<服务名>__<工具名>` 命名，服务名随安装配置而定；以会话上下文里实际出现的 mcp__* 工具为准。工作区预置了 MCP 配置模板 `~/.pomasa/.dsh/mcp.servers.yml`：先装 `dsh plugin --profile <profile> add github:Momojie-S/dsh-workspace-mcp` 使其随会话加载，其中 crawl4ai 免密钥即可用，serper 与 oxylabs 填入密钥后启用。
+
+## 上网搜索原则（Grounded Search）
+
+搜索摘要不可信，必须抓原网页全文后再引用（BHV-05）。具体做到三点：
+
+- 先搜索定位可能相关的来源，不轻信摘要与快照。
+- 关键信息一律抓原网页或原始文件全文，以原文上下文核对结论、数字与出处。
+- 引用必须能溯源到原文；找不到原文支撑的说法不写入产出。
 
 ## 输出
 - 一切产物为 Markdown，按要求维护各阶段 index.json（OBV-01）。

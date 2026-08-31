@@ -1,0 +1,31 @@
+# Workspace-level MCP servers, auto-loaded when a session runs in this
+# directory (~/.pomasa). Read by @momojie-S/dsh-workspace-mcp — install it once
+# per profile:
+#
+#   dsh plugin --profile <profile> add github:Momojie-S/dsh-workspace-mcp
+#
+# Field reference follows @deepseek-ai/dsh-mcp-client (transport / command /
+# args / env / url / headers). The `servers` keys become the tool prefix, so
+# e.g. crawl4ai tools surface as mcp__crawl4ai__read_url.
+#
+# Secrets: replace the <YOUR_...> placeholders below. crawl4ai needs no key —
+# it works as soon as playwright's browser is installed (playwright install
+# chromium) — the other two only activate once their placeholders are filled.
+servers:
+  serper-search:
+    transport: stdio
+    command: uvx
+    args: ["--with", "mcp<2.0", "serper-mcp-server"]
+    env:
+      SERPER_API_KEY: "<YOUR_SERPER_API_KEY>"
+  oxylabs:
+    transport: stdio
+    command: uvx
+    args: ["oxylabs-mcp"]
+    env:
+      OXYLABS_USERNAME: "<YOUR_OXYLABS_USERNAME>"
+      OXYLABS_PASSWORD: "<YOUR_OXYLABS_PASSWORD>"
+  crawl4ai:
+    transport: stdio
+    command: uvx
+    args: ["--from", "crawl4ai-search-mcp==0.1.1", "crawl4ai-search"]
