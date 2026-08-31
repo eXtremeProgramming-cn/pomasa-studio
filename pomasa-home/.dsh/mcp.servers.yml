@@ -1,8 +1,7 @@
-# Workspace-level MCP servers, auto-loaded when a session runs in this
-# directory (~/.pomasa). Read by @momojie-S/dsh-workspace-mcp — install it once
-# per profile:
+# Workspace-level MCP servers for ~/.pomasa. Loaded automatically by POMASA
+# Studio at dsh startup — no extra plugin or profile patch needed.
 #
-#   dsh plugin --profile <profile> add github:Momojie-S/dsh-workspace-mcp
+# Editing this file takes effect on the next dsh restart.
 #
 # Field reference follows @deepseek-ai/dsh-mcp-client (transport / command /
 # args / env / url / headers). The `servers` keys become the tool prefix, so

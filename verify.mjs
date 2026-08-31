@@ -247,6 +247,53 @@ test('L1 artifact.read: honors unit-root guard', () => {
   assert.throws(() => readArtifact({ pomasaHome: home }, 'demo', null, '../../../etc/passwd'), /escapes/)
 })
 
+test('L1 mcp-servers: seeded yml parses into mcp-client configs', async () => {
+  const { readMcpServerConfigs, __internals } = await import(path.join(ROOT, 'src/host/core/mcp-servers.js'))
+  const file = path.join(tempHome(), 'mcp.servers.yml')
+  fs.writeFileSync(file, `servers:
+  serper-search:
+    transport: stdio
+    command: uvx
+    args: ["--with", "mcp<2.0", "serper-mcp-server"]
+    env:
+      SERPER_API_KEY: "<YOUR_SERPER_API_KEY>"
+  oxylabs:
+    transport: stdio
+    command: uvx
+    args: ["oxylabs-mcp"]
+    env:
+      OXYLABS_USERNAME: "u"
+      OXYLABS_PASSWORD: "p"
+  crawl4ai:
+    transport: stdio
+    command: uvx
+    args: ["--from", "crawl4ai-search-mcp==0.1.1", "crawl4ai-search"]
+  remote:
+    transport: streamable-http
+    url: https://example.com/mcp
+    headers:
+      Authorization: "Bearer tok"
+  broken:
+    transport: bogus
+    command: x
+`, 'utf8')
+  const configs = readMcpServerConfigs(file)
+  // broken transport is skipped (logged), the other four map cleanly
+  assert.equal(configs.length, 4)
+  const serper = configs.find((c) => c.serverName === 'serper-search')
+  assert.equal(serper.config.transport, 'stdio')
+  assert.equal(serper.config.command, 'uvx')
+  assert.deepEqual(serper.config.args, ['--with', 'mcp<2.0', 'serper-mcp-server'])
+  assert.equal(serper.config.env.SERPER_API_KEY, '<YOUR_SERPER_API_KEY>')
+  const remote = configs.find((c) => c.serverName === 'remote')
+  assert.equal(remote.config.transport, 'streamable-http')
+  assert.equal(remote.config.headers.Authorization, 'Bearer tok')
+  const crawl = configs.find((c) => c.serverName === 'crawl4ai')
+  assert.deepEqual(crawl.config.args, ['--from', 'crawl4ai-search-mcp==0.1.1', 'crawl4ai-search'])
+  // invalid transports are rejected at the mapper
+  assert.ok(__internals.toMcpConfig('bad', { transport: 'nope' }).error)
+})
+
 test('L1 prompt: forces Markdown-only output', () => {
   const md = buildUserInput({ projectId: 'x', topic: 't', runMode: 'single' })
   assert.match(md, /Deliverable|输出格式/)

@@ -29,7 +29,7 @@ POMASA 的核心架构主张：一套 MAS 不是程序，而是一组声明。ag
 - **serper**（Google 搜索，工具形如 `mcp__serper-search__google_search`）：https://serper.dev
 - **oxylabs**（网页抓取系列，工具形如 `mcp__oxylabs__universal_scraper`、`mcp__oxylabs__ai_search`）：https://oxylabs.io
 
-MCP 工具以 `mcp__<服务名>__<工具名>` 命名，服务名随安装配置而定；以会话上下文里实际出现的 mcp__* 工具为准。工作区预置了 MCP 配置模板 `~/.pomasa/.dsh/mcp.servers.yml`：先装 `dsh plugin --profile <profile> add github:Momojie-S/dsh-workspace-mcp` 使其随会话加载，其中 crawl4ai 免密钥即可用，serper 与 oxylabs 填入密钥后启用。
+MCP 工具以 `mcp__<服务名>__<工具名>` 命名，服务名随安装配置而定；以会话上下文里实际出现的 mcp__* 工具为准。工作区预置了 MCP 配置 `~/.pomasa/.dsh/mcp.servers.yml`，装好 POMASA Studio 后 dsh 启动会自动按它加载 MCP 工具，无需额外安装。其中 crawl4ai 免密钥即可用，serper 与 oxylabs 填入密钥后启用。
 
 ## 上网搜索原则（Grounded Search）
 

@@ -8,9 +8,10 @@ import { unitListing, unitState, readArtifact } from './core/state.js'
 import { writeUserInput } from './core/prompt.js'
 import { ensureSkill, generationPrompt, runPrompt } from './core/skill.js'
 import { ensurePomasaHome } from './core/pomasa-home.js'
+import { loadMcpServers } from './mcp-loader.js'
 
 export const name = 'pomasa-studio'
-export const inject = ['webServer', 'agentLoop']
+export const inject = ['webServer', 'agentLoop', 'tools']
 
 const API_BASE = '/pomasa'
 const ROUTES = [
@@ -783,6 +784,10 @@ export function apply(ctx, config = {}) {
       handler: handleApi,
     }),
   )
+
+  // Embedded workspace-MCP: mount ~/.pomasa/.dsh/mcp.servers.yml servers through
+  // the mcp-client dsh ships by default (fire-and-forget, never blocks startup).
+  loadMcpServers(ctx, home()).catch(() => { /* best-effort */ })
 
   return () => {
     for (const d of disposers) d()
