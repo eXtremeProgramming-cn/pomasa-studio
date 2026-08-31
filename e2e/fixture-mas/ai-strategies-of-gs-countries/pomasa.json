@@ -1,0 +1,228 @@
+{
+  "schema_version": "pomasa-0.10",
+  "mas_id": "ai-strategies-of-gs-countries",
+  "name": "全球南方AI战略国别研究",
+  "description": "按国别分别研究全球南方各国的AI战略，并深入调研四个方向：AI基建/应用/治理/能力建设的问题与前景；地缘政治背景下与中美两国的关系定位；立法、产业政策与国际合作策略；影响该国AI战略的关键政府部门、政治家与思想领袖。",
+  "language": {
+    "blueprint": "zh-CN",
+    "report": "zh-CN"
+  },
+  "run_axis_note": "按国别拆分单元（Split into units），每个国家一个独立运行单元，单元根目录为 workspace/{country}/",
+  "work": {
+    "mode": "multi",
+    "dimensions": [
+      "country"
+    ],
+    "units": [
+      "brazil",
+      "india",
+      "south-africa",
+      "nigeria",
+      "kenya",
+      "egypt",
+      "indonesia",
+      "vietnam",
+      "mexico",
+      "argentina",
+      "saudi-arabia",
+      "uae"
+    ],
+    "unit_layout": "workspace/{country}"
+  },
+  "unit_root": "workspace/{country}",
+  "run_manifest": "workspace/{country}/run.json",
+  "stages": [
+    {
+      "index": 1,
+      "id": "country_scan",
+      "title": "国别扫描",
+      "agent": "01.country_scanner.md",
+      "parallelism": "single",
+      "contracts": [
+        {
+          "artifact": "country_brief",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "01.country_scan/country_brief.md",
+          "index_path": "01.country_scan/index.json",
+          "schema": [
+            "id",
+            "title",
+            "file"
+          ]
+        },
+        {
+          "artifact": "research_checklist",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "01.country_scan/research_checklist.md",
+          "index_path": "01.country_scan/index.json",
+          "schema": [
+            "id",
+            "title",
+            "file"
+          ]
+        },
+        {
+          "artifact": "scanner_sources",
+          "shape": "vertical-list",
+          "format": "markdown",
+          "path_glob": "01.country_scan/SRC-cnt-*.md",
+          "index_path": "01.country_scan/index.json",
+          "schema": [
+            "id",
+            "title",
+            "file"
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "id": "deep_research",
+      "title": "深度资料收集",
+      "agent": "02.deep_researcher.md",
+      "parallelism": "multi",
+      "contracts": [
+        {
+          "artifact": "materials",
+          "shape": "vertical-list",
+          "format": "markdown",
+          "path_glob": "02.deep_research/{direction_id}/*.md",
+          "index_path": "02.deep_research/index.json",
+          "schema": [
+            "id",
+            "title",
+            "file"
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "id": "verification",
+      "title": "数据核验",
+      "agent": "03.data_verifier.md",
+      "parallelism": "single",
+      "contracts": [
+        {
+          "artifact": "verification_report",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "03.verification/verification_report.md",
+          "index_path": "03.verification/index.json",
+          "schema": [
+            "id",
+            "title",
+            "file"
+          ]
+        },
+        {
+          "artifact": "verified_sources",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "03.verification/verified_sources.md",
+          "index_path": "03.verification/index.json",
+          "schema": [
+            "id",
+            "title",
+            "file"
+          ]
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "id": "analysis",
+      "title": "方向分析",
+      "agent": "04.analyzer.md",
+      "parallelism": "multi",
+      "contracts": [
+        {
+          "artifact": "direction_analysis",
+          "shape": "vertical-list",
+          "format": "markdown",
+          "path_glob": "04.analysis/{direction_id}_analysis.md",
+          "index_path": "04.analysis/index.json",
+          "schema": [
+            "id",
+            "title",
+            "file"
+          ]
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "id": "argument_verification",
+      "title": "论证核验",
+      "agent": "05.argument_verifier.md",
+      "parallelism": "single",
+      "contracts": [
+        {
+          "artifact": "argument_verification_report",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "05.argument_verification/argument_verification_report.md",
+          "index_path": "05.argument_verification/index.json",
+          "schema": [
+            "id",
+            "title",
+            "file"
+          ]
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "id": "sections",
+      "title": "报告分节撰写",
+      "agent": "06.section_writer.md",
+      "parallelism": "multi",
+      "contracts": [
+        {
+          "artifact": "report_sections",
+          "shape": "vertical-list",
+          "format": "markdown",
+          "path_glob": "06.sections/{section_id}.{section_name}.md",
+          "index_path": "06.sections/index.json",
+          "schema": [
+            "id",
+            "title",
+            "file"
+          ]
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "id": "report",
+      "title": "报告装配与交付",
+      "agent": "07.reporter.md",
+      "parallelism": "single",
+      "contracts": [
+        {
+          "artifact": "final_report",
+          "shape": "single-file",
+          "format": "markdown",
+          "path_glob": "07.report/final_report.md",
+          "index_path": "07.report/index.json",
+          "schema": [
+            "id",
+            "title",
+            "file"
+          ]
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "unit_root = workspace/{country}（多单元运行模式，OBV-02 multi，维度: country）。",
+    "契约路径（path_glob / index_path）均相对于单元根目录 workspace/{country}/。",
+    "输出格式统一为 Markdown；本系统由 POMASA Studio 托管，不启用 DOCX/PDF 导出管线（STR-09 不采用）。",
+    "work.units 为预声明的初始单元清单（12 国，见 references/methodology/countries.md）；扩展国家 = 在该数组追加单元键 + 在 countries.md 补充条目。",
+    "path_glob 中的 {direction_id}/{section_id} 为运行时占位符，实际产物由各阶段 index.json 枚举（OBV-01）。",
+    "每个单元根目录携带 run.json（OBV-03），由 00.orchestrator 独占维护。",
+    "运行边界（工作区约定）：运行期所有写入（含运行笔记）限于单元根 workspace/{country}/ 内；BHV-07 跨运行资料库未采用（需在单元根外写入），同国重跑复用单元根内既有材料。"
+  ]
+}

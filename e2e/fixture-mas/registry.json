@@ -1,4 +1,27 @@
-{ "version": 1, "mas": [
-  { "id": "demo", "name": "Demo MAS", "description": "E2E fixture mas with a completed run", "status": "idle", "createdAt": 1758000000000, "lastRunAt": 1758010000000 },
-  { "id": "black-myth-zhong-kui", "name": "《黑神话·钟馗》市场调研", "description": "《黑神话·钟馗》有什么特点，预期销量多少？", "status": "idle", "createdAt": 1758000000000 }
-] }
+{
+  "version": 1,
+  "mas": [
+    {
+      "id": "demo",
+      "name": "Demo MAS",
+      "description": "E2E fixture mas with a completed run",
+      "status": "idle",
+      "createdAt": 1758000000000,
+      "lastRunAt": 1758010000000
+    },
+    {
+      "id": "black-myth-zhong-kui",
+      "name": "《黑神话·钟馗》市场调研",
+      "description": "《黑神话·钟馗》有什么特点，预期销量多少？",
+      "status": "idle",
+      "createdAt": 1758000000000
+    },
+    {
+      "id": "ai-strategies-of-gs-countries",
+      "name": "全球南方AI战略国别研究",
+      "description": "按国别研究全球南方各国的 AI 战略（multi fixture：12 国单元）",
+      "status": "idle",
+      "createdAt": 1758000000000
+    }
+  ]
+}
