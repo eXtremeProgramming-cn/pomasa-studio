@@ -16,8 +16,7 @@
     "pomasa-home/",
     "scripts/bundle-client.mjs",
     "cordis.patch.yml",
-    "README.md",
-    "assets/"
+    "README.md"
   ],
   "dsh": {
     "bundle": {
@@ -55,8 +54,6 @@
   },
   "dependencies": {
     "docx": "^9.7.1",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8",
     "markdown-it": "^15.0.1",
     "markdown-it-footnote": "^4.0.0"
   }

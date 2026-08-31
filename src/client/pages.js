@@ -393,8 +393,22 @@ function MasDetail(props) {
   }
 
   const exportFile = async (content, format, base) => {
-    const blob = await api.exportMd(content, format)
-    if (!blob) { setNotice({ kind: 'err', text: t('export.fail') }); return }
+    let blob = null
+    try {
+      const res = await fetch('/pomasa/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, format }) })
+      if (!res.ok) {
+        let msg = t('export.fail')
+        try { const j = await res.json(); if (j && j.error) msg = j.error } catch { msg = 'export failed (HTTP ' + res.status + ')' }
+        console.error('[pomasa] export failed:', res.status, msg)
+        setNotice({ kind: 'err', text: msg })
+        return
+      }
+      blob = await res.blob()
+    } catch (e) {
+      console.error('[pomasa] export error:', e)
+      setNotice({ kind: 'err', text: String((e && e.message) || e) || t('export.fail') })
+      return
+    }
     downloadBlob(blob, (base || 'pomasa') + '.' + format)
   }
 
@@ -555,7 +569,6 @@ function BlueprintModal(props) {
       h('div', { className: 'ps-modal-head' },
         h('span', { style: { fontWeight: 600, fontSize: 15 } }, str(props.title) + ' · ' + t('modal.blueprint')),
         h('span', { className: 'spacer', style: { flex: 1 } }),
-        onExport && data && data.format === 'markdown' ? h(psBtn, { ghost: true, onClick: () => onExport(str(data.content), 'pdf', str(props.title) || 'blueprint') }, t('export.pdf')) : null,
         onExport && data && data.format === 'markdown' ? h(psBtn, { ghost: true, onClick: () => onExport(str(data.content), 'docx', str(props.title) || 'blueprint') }, t('export.docx')) : null,
         h(psBtn, { ghost: true, onClick: props.onClose }, '✕'),
       ),
@@ -581,7 +594,6 @@ function ArtifactModal(props) {
         h('span', { style: { flex: 1, fontWeight: 600, fontSize: 15, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, str(viewer.path)),
         h('span', { className: 'ps-muted' }, str(viewer.format)),
         h(psBtn, { ghost: true, onClick: onDownload }, t('artifact.download')),
-        onExport ? h(psBtn, { ghost: true, onClick: () => onExport(str(viewer.content), 'pdf', exportBase) }, t('export.pdf')) : null,
         onExport ? h(psBtn, { ghost: true, onClick: () => onExport(str(viewer.content), 'docx', exportBase) }, t('export.docx')) : null,
         h(psBtn, { ghost: true, onClick: onClose }, '✕'),
       ),

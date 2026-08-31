@@ -247,15 +247,14 @@ test('L1 artifact.read: honors unit-root guard', () => {
   assert.throws(() => readArtifact({ pomasaHome: home }, 'demo', null, '../../../etc/passwd'), /escapes/)
 })
 
-test('L1 export: markdown to docx/pdf via pure js (CJK)', async () => {
+test('L1 export: markdown to docx via pure js (CJK)', async () => {
   const { mdToDocx, mdToPdf } = await import(path.join(ROOT, 'src/host/core/export.js'))
   const md = '# 标题\n\n正文含**加粗**、中文、脚注[^1] 和表格。\n\n[^1]: 来源说明。\n\n| A | B |\n|---|---|\n| 1 | 中 |'
   const docx = await mdToDocx(md)
   assert.equal(Buffer.from(docx.subarray(0, 2)).toString(), 'PK', 'docx is a zip container')
   assert.ok(docx.length > 1000, 'docx has content')
-  const pdf = await mdToPdf(md)
-  assert.match(Buffer.from(pdf.subarray(0, 8)).toString(), /%PDF-/, 'pdf header')
-  assert.ok(pdf.length > 1000, 'pdf has content')
+  // PDF was removed in 0.2.2; mdToPdf must say so instead of producing a file
+  await assert.rejects(mdToPdf(md), /removed in 0.2.2/, 'pdf export is gone')
 })
 
 test('L1 mcp-servers: seeded yml parses into mcp-client configs', async () => {
@@ -827,7 +826,7 @@ test('L2 client renders with real React (guards positional-children bugs)', asyn
   assert.equal((sameHtml.match(/class="ps-card ps-art"/g) || []).length, 1)
 })
 
-test('L2 export endpoint returns downloadable docx/pdf buffers', async () => {
+test('L2 export endpoint returns a downloadable docx buffer (pdf disabled)', async () => {
   const home = tempHome()
   const { ctx, routes } = mockCtx()
   apply(ctx, { pomasaHome: home })
@@ -845,9 +844,7 @@ test('L2 export endpoint returns downloadable docx/pdf buffers', async () => {
   assert.equal(d.body.subarray(0, 2).toString(), 'PK')
   const p = mockRes()
   await handler(mk('# hi\n\nchinese text', 'pdf'), p)
-  assert.equal(p.code, 200)
-  assert.ok(Buffer.isBuffer(p.body), 'pdf body must be a buffer')
-  assert.match(p.body.subarray(0, 8).toString(), /%PDF-/)
+  assert.equal(p.code, 400, 'pdf format is rejected after 0.2.2')
   const bad = mockRes()
   await handler(mk('# x', 'png'), bad)
   assert.equal(bad.code, 400)

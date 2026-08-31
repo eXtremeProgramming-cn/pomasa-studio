@@ -9,7 +9,7 @@ import { writeUserInput } from './core/prompt.js'
 import { ensureSkill, generationPrompt, runPrompt } from './core/skill.js'
 import { ensurePomasaHome } from './core/pomasa-home.js'
 import { loadMcpServers } from './mcp-loader.js'
-import { mdToDocx, mdToPdf } from './core/export.js'
+import { mdToDocx } from './core/export.js'
 
 export const name = 'pomasa-studio'
 export const inject = ['webServer', 'agentLoop', 'tools']
@@ -724,14 +724,13 @@ export function apply(ctx, config = {}) {
 
       if (sub === '/export' && req.method === 'POST') {
         const body = await readBody(req)
-        const format = body.format === 'pdf' ? 'pdf' : body.format === 'docx' ? 'docx' : null
-        if (format === null) return jsonResponse(res, 400, { ok: false, error: 'format must be pdf or docx' })
+        if (body.format !== 'docx') return jsonResponse(res, 400, { ok: false, error: 'only docx export is available (PDF was removed in 0.2.2)' })
         const content = String(body.content || '')
         try {
-          const buf = format === 'pdf' ? await mdToPdf(content) : await mdToDocx(content)
+          const buf = await mdToDocx(content)
           res.writeHead(200, {
-            'content-type': format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'content-disposition': `attachment; filename="pomasa.${format}"`,
+            'content-type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'content-disposition': 'attachment; filename="pomasa.docx"',
           })
           res.end(Buffer.isBuffer(buf) ? buf : Buffer.from(buf))
           return
