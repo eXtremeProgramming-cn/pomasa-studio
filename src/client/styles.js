@@ -188,6 +188,11 @@ export const CSS = `
 @media (max-width: 900px) { .ps-panel { grid-template-columns: 1fr; } }
 
 /* ---------- run selector rows ---------- */
+.ps-units-head { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+.ps-units-title { font-size: 15px; font-weight: 600; min-width: 0; }
+.ps-units-summary { font-size: 12.5px; color: var(--dsw-alias-label-secondary); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-units-caret { color: var(--dsw-alias-label-secondary); transition: transform 140ms ease; }
+.ps-units-caret.open { transform: rotate(180deg); }
 .ps-unit-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: background 140ms ease, border-color 140ms ease; }
 .ps-unit-row:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .ps-unit-row.on { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }

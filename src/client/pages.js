@@ -217,6 +217,7 @@ function MasDetail(props) {
   const [notice, setNotice] = React.useState(null)
   const [newUnit, setNewUnit] = React.useState('')
   const [rerun, setRerun] = React.useState(null) // { key } when the rerun modal is open
+  const [unitsOpen, setUnitsOpen] = React.useState(false) // unit selector collapsed by default
 
   const refresh = React.useCallback(async () => {
     try {
@@ -349,6 +350,8 @@ function MasDetail(props) {
   const stageIdx = stage ? stage.index : 0
   const run = (state && state.run) || null
   const runStatus = run ? str(run.status) : 'waiting'
+  const ranCount = Array.isArray(units) ? units.filter((u) => u.run).length : 0
+  const unitTotal = Array.isArray(units) ? units.length : 0
 
   return h('div', { className: 'ps-main' },
     h('div', { className: 'ps-main-inner' },
@@ -392,19 +395,23 @@ function MasDetail(props) {
     notice ? h('div', { className: 'ps-notice ' + notice.kind }, str(notice.text)) : null,
 
     Array.isArray(units) && units.length > 1 ? h(psCard, null,
-      h('div', { className: 'ps-card-title', style: { marginBottom: 10 } }, t('unit.label')),
-      h('div', { className: 'ps-unit-add' },
+      h('div', { className: 'ps-units-head', style: { marginBottom: unitsOpen ? 10 : 0 }, role: 'button', 'aria-expanded': unitsOpen ? 'true' : 'false', onClick: () => setUnitsOpen((v) => !v), title: unitsOpen ? t('units.collapse') : t('units.expand') },
+        h('div', { className: 'ps-units-title' }, t('unit.label')),
+        h('div', { className: 'ps-units-summary' }, t('units.summary', { sel: str(unit || t('unit.none')), n: ranCount, total: unitTotal, left: unitTotal - ranCount })),
+        h('span', { className: 'ps-units-caret' + (unitsOpen ? ' open' : '') }, '▾'),
+      ),
+      unitsOpen ? h('div', { className: 'ps-unit-add' },
         h(psInput, { value: newUnit, placeholder: t('unit.add.ph'), onChange: (e) => setNewUnit(e.target.value), onKeyDown: (e) => { if (e.key === 'Enter') addUnit() }, style: { flex: 1, minWidth: 0 } }),
         h(psBtn, { primary: true, onClick: addUnit, disabled: !newUnit.trim() }, t('unit.add')),
-      ),
-      h('div', null, units.map((u) =>
+      ) : null,
+      unitsOpen ? h('div', null, units.map((u) =>
         h('div', { key: str(u.key), className: 'ps-unit-row' + (u.key === unit ? ' on' : ''), onClick: () => { setUnit(u.key); setStageSel(0); setArtifact(null); setViewer(null) } },
           h('span', null, str(u.key)),
           h('span', { className: 'spacer', style: { flex: 1 } }),
           u.run ? psBadge('completed', t('unit.ran')) : u.planned ? psBadge('generating', t('unit.planned')) : psBadge('idle', t('not.run')),
           h(psBtn, { ghost: true, style: { padding: '3px 10px' }, onClick: (e) => { e.stopPropagation(); startRun(u.key) } }, t('run')),
         ),
-      )),
+      )) : null,
     ) : null,
 
     h('div', { className: 'ps-stages', style: { marginTop: 20 } },
