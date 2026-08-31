@@ -53,7 +53,7 @@ function psEmpty(props, children) {
     hint = props.hint !== undefined ? props.hint : (Array.isArray(kc) ? kc[0] : kc)
   }
   return h('div', { className: 'ps-empty' },
-    h('div', { className: 'ps-empty-glyph' }, '▫'),
+    h('img', { className: 'ps-meme', src: MASA_MEME, alt: '', draggable: false }),
     h('div', { className: 'ps-empty-title' }, title),
     hint ? h('div', { className: 'ps-muted' }, hint) : null,
   )
