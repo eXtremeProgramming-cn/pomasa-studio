@@ -82,12 +82,12 @@ export function apply(ctx) {
     const open = usePanelOpen()
     useLang()
     // 透明隔条宽度 = dsh 侧栏（sidebarCol）当前实际宽度，随折叠/展开实时跟随，
-    // 与 pictor 的 pt-shell-nav 同一套实测方案，避免固定 264px 在窄侧栏下盖住会话区。
-    const [sb, setSb] = React.useState(300)
+    // 与 pictor 的 pt-shell-nav 同一套机制（避免猜错宽度在会话区左缘留缝）。
+    const [sb, setSb] = React.useState(280)
     React.useEffect(() => {
       if (!open) return
       const el = document.querySelector('[class*="sidebarCol"]')
-      if (!el) { setSb(300); return } // 保险：实测不到侧栏时宁可留宽，绝不侵入会话列表区
+      if (!el) return
       const measure = () => {
         const w = Math.round(el.getBoundingClientRect().width)
         if (w > 0) setSb(w)
