@@ -80,9 +80,29 @@ export function apply(ctx) {
   // mirrors the sidebar width so the session list stays usable beneath it.
   function WorkbenchPanel() {
     const open = usePanelOpen()
+    useLang()
+    // 透明隔条宽度 = dsh 侧栏（sidebarCol）当前实际宽度，随折叠/展开实时跟随，
+    // 与 pictor 的 pt-shell-nav 同一套实测方案，避免固定 264px 在窄侧栏下盖住会话区。
+    const [sb, setSb] = React.useState(264)
+    React.useEffect(() => {
+      if (!open) return
+      const el = document.querySelector('[class*="sidebarCol"]')
+      if (!el) return
+      const measure = () => {
+        const w = Math.round(el.getBoundingClientRect().width)
+        if (w > 0) setSb(w)
+      }
+      measure()
+      if (typeof ResizeObserver === 'function') {
+        const ro = new ResizeObserver(measure)
+        ro.observe(el)
+        return () => ro.disconnect()
+      }
+      return undefined
+    }, [open])
     if (!open) return null
     return h('div', { className: 'ps-shell-root' },
-      h('div', { className: 'ps-shell-nav' }),
+      h('div', { className: 'ps-shell-nav', style: { flexBasis: sb + 'px' } }),
       h('div', { className: 'ps-shell-panel' },
         h(StudioRoot, { sessionId: '', key: 'shell' }),
       ),

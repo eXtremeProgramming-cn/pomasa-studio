@@ -130,7 +130,7 @@ export const CSS = `
 /* shell.overlay workbench panel — bounded to the center column, the DSH
    sidebar stays visible and clickable underneath (click-through root). */
 .ps-shell-root { position: absolute; inset: 0; display: flex; pointer-events: none; }
-.ps-shell-nav { flex: 0 0 264px; }
+.ps-shell-nav { flex: 0 0 auto; }
 .ps-shell-panel { flex: 1; min-width: 0; pointer-events: auto; background: var(--dsw-alias-bg-base); border-left: 1px solid var(--dsw-alias-border-l2); display: flex; min-height: 0; overflow: hidden; }
 
 /* ---------- modal ---------- */

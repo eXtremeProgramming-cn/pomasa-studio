@@ -39,11 +39,11 @@ npm run test:e2e          # L4a：Playwright 浏览器 E2E（fixture 数据）
 ## 本地开发安装
 
 ```bash
-dsh plugin --profile web add ~/Projects/01.tools/pomasa-studio
+dsh plugin --profile web add ~/Projects/03.systems/pomasa-studio
 dsh web
 ```
 
-desktop profile 采用 pnpm link 方式安装（`link:~/Projects/01.tools/pomasa-studio`），改动即时生效，重启 profile 生效。移除插件时改 profile 的 `package.json`（dependencies 与 `dsh.profile.bundles`）后 `pnpm install`，再手工清掉 pnpm 不清理的 link 符号链接。
+desktop profile 采用 pnpm link 方式安装（`link:~/Projects/03.systems/pomasa-studio`），改动即时生效，重启 profile 生效。移除插件时改 profile 的 `package.json`（dependencies 与 `dsh.profile.bundles`）后 `pnpm install`，再手工清掉 pnpm 不清理的 link 符号链接。
 
 ## 双语规范（改动 client 文案时必读）
 
