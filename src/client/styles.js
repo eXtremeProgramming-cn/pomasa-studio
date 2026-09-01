@@ -247,7 +247,7 @@ export const CSS = `
 [data-conversation-scroll] > [data-slot="conversation.session"] > div:has(.ps-workbench) { flex: 1 1 0 !important; }
 
 /* --- left navigation --- */
-.ps-nav { flex: 0 0 280px; min-width: 0; border-right: 1px solid var(--dsw-alias-border-l2); display: flex; flex-direction: column; background: var(--dsw-alias-bg-base); }
+.ps-nav { flex: 0 0 264px; min-width: 0; border-right: 1px solid var(--dsw-alias-border-l2); display: flex; flex-direction: column; background: var(--dsw-alias-bg-base); }
 .ps-nav-head { padding: 18px 16px 12px; border-bottom: 1px solid var(--dsw-alias-border-l2); }
 .ps-nav-title { display: flex; align-items: center; gap: 10px; }
 .ps-nav-title .name { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -282,7 +282,7 @@ export const CSS = `
 
 /* --- main panes --- */
 .ps-main { flex: 1; min-width: 0; overflow-y: auto; }
-.ps-main-inner { max-width: 1180px; width: 100%; margin: 0 auto; padding: 20px 28px 56px; }
+.ps-main-inner { max-width: 880px; width: 100%; margin: 0 auto; padding: 20px 28px 56px; }
 
 /* right-pane empty states */
 .ps-empty-hero { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 48px 28px; }
