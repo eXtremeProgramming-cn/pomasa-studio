@@ -63,7 +63,17 @@ export function apply(ctx) {
     subs: new Set(),
     emit() { for (const fn of this.subs) fn() },
     toggle() { this.open = !this.open; this.emit() },
+    close() { if (this.open) { this.open = false; this.emit() } },
     subscribe(fn) { this.subs.add(fn); return () => { this.subs.delete(fn) } },
+  }
+  // 点选 dsh 左侧会话（或面板外任意处）自动收起工作台：与 pictor 同款交互。
+  if (typeof document !== 'undefined') {
+    document.addEventListener('mousedown', (e) => {
+      if (!panel.open) return
+      const t = e.target
+      if (t && typeof t.closest === 'function' && (t.closest('.ps-shell-panel') || t.closest('.ps-footer-action'))) return
+      panel.close()
+    })
   }
 
   function usePanelOpen() {
@@ -100,8 +110,8 @@ export function apply(ctx) {
       }
       return undefined
     }, [open])
-    if (!open) return null
-    return h('div', { className: 'ps-shell-root' },
+    // 恒挂载 + display 切换：关闭不卸载，重开恢复关闭前的界面（与 pictor 一致）
+    return h('div', { className: 'ps-shell-root', style: open ? undefined : { display: 'none' } },
       h('div', { className: 'ps-shell-nav', style: { flexBasis: sb + 'px' } }),
       h('div', { className: 'ps-shell-panel' },
         h(StudioRoot, { sessionId: '', key: 'shell' }),
