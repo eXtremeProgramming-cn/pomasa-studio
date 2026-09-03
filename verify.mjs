@@ -20,6 +20,7 @@ const { loadDescriptor, normalizeContract } = await import(path.join(ROOT, 'src/
 const { unitRoots, plannedUnits, unitListing, unitState, readArtifact } = await import(path.join(ROOT, 'src/host/core/state.js'))
 const { buildUserInput } = await import(path.join(ROOT, 'src/host/core/prompt.js'))
 const { ensurePomasaHome, templatePomasaHome } = await import(path.join(ROOT, 'src/host/core/pomasa-home.js'))
+const { packagedSkillDir } = await import(path.join(ROOT, 'src/host/core/paths.js'))
 const { apply } = await import(path.join(ROOT, 'src/host/apply.js'))
 
 /* ---------------- mini runner ---------------- */
@@ -428,6 +429,46 @@ test('L1 pomasa home: template is copied in, but existing files are kept', () =>
   fs.writeFileSync(path.join(home, 'AGENTS.md'), '# 我的自定义约定\n', 'utf8')
   ensurePomasaHome({ pomasaHome: home })
   assert.equal(fs.readFileSync(path.join(home, 'AGENTS.md'), 'utf8'), '# 我的自定义约定\n')
+})
+
+test('L1 paths: packaged dirs resolve to the real tree (Windows drive-prefix regression)', () => {
+  // Regression for the Windows boot crash. The old pattern
+  // `path.resolve(new URL(...).pathname)` doubled the drive prefix on win32
+  // (`C:\C:\Users\...`), so the scanned `skill` dir never existed. Both
+  // packaged dirs must resolve to the real tree on every platform.
+  const skill = packagedSkillDir()
+  assert.equal(fs.existsSync(path.join(skill, 'SKILL.md')), true, 'packagedSkillDir() must point at the shipped skill/ snapshot')
+  assert.equal(fs.existsSync(path.join(templatePomasaHome(), 'AGENTS.md')), true, 'templatePomasaHome() must point at pomasa-home/')
+  // Doubled-drive leak guard — the exact path shape that crashed boot.
+  assert.ok(!/^[a-zA-Z]:[\\/][a-zA-Z]:/.test(skill), `packagedSkillDir() leaked a doubled drive prefix: ${skill}`)
+})
+
+test('L1 paths: import.meta.url is never resolved through URL.pathname', () => {
+  // Document the mechanism. On Windows `new URL('../../skill/',
+  // import.meta.url).pathname` yields POSIX-style `/C:/Users/...`; feeding that
+  // to path.resolve() treats the leading `/` as current-drive root and doubles
+  // the drive letter — the `C:\C:\...` from the boot crash. Reproduced without
+  // a Windows box: on a win32 cwd the same join doubles exactly as reported.
+  const base = new URL('file:///C:/Users/Admin/AppData/Roaming/dsh-desktop/harness/profiles/web/node_modules/pomasa-studio/src/host/core/paths.js')
+  const pathname = new URL('../../../skill/', base).pathname // POSIX-style
+  const buggyOnWindows = 'C:\\' + pathname.slice(1).replace(/\//g, '\\')
+  assert.equal(buggyOnWindows, 'C:\\C:\\Users\\Admin\\AppData\\Roaming\\dsh-desktop\\harness\\profiles\\web\\node_modules\\pomasa-studio\\skill\\')
+  // And the fix must hold: host code resolves module-relative files through
+  // fileURLToPath, never `new URL(...).pathname` (apply.js routes HTTP URLs via
+  // `u.pathname`, which is unrelated to import.meta.url and stays allowed).
+  const offenders = []
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name)
+      if (e.isDirectory()) walk(p)
+      else if (p.endsWith('.js') || p.endsWith('.mjs')) {
+        const src = fs.readFileSync(p, 'utf8')
+        if (/new\s+URL\([^\n)]*\)\s*\.pathname/.test(src)) offenders.push(path.relative(ROOT, p))
+      }
+    }
+  }
+  walk(path.join(ROOT, 'src/host'))
+  assert.deepEqual(offenders, [], 'no new URL(...).pathname resolution under src/host')
 })
 
 test('L2 lifecycle: create prepares a prompt; /record drives generating; completion flips to completed', async () => {

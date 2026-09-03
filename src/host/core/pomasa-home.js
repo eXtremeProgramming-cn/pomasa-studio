@@ -5,10 +5,11 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { pomasaHome } from './paths.js'
 
 export function templatePomasaHome() {
-  return path.resolve(new URL('../../../pomasa-home', import.meta.url).pathname)
+  return fileURLToPath(new URL('../../../pomasa-home', import.meta.url))
 }
 
 /**

@@ -29,12 +29,21 @@ docs/             DESIGN.md、UI.md、TESTING.md、本文件
 ```bash
 npm run build:client      # 重新生成 lib/client.js（若改动 src/client/*）
 npm run verify            # L1 单元 + L2 host 集成 + client bundle 冒烟（无 DSH）
+npm run test:pack         # 打包完整性：tarball 必带 skill/、lib/、pomasa-home/ 等（无 DSH）
+npm run test:install      # L5：README 安装路径全链路（打包 → dsh plugin add → 真实 dsh web 启动断言）
 npm run test:transport    # L3：封闭起的真实 dsh web + curl（不碰真实 profile）
 npm run test:e2e:install  # 一次性装 @playwright/test + chromium
 npm run test:e2e          # L4a：Playwright 浏览器 E2E（fixture 数据）
+npm run hooks:install     # 一次性启用 pre-push 钩子（git config core.hooksPath .githooks）
 ```
 
 分层测试方案见 [TESTING.md](./TESTING.md)。
+
+## 安装链路 CI（L5）
+
+`npm run test:install` 复现 README 的用户安装路径：把当前仓库 `npm pack` 成 tarball（`files` 白名单随之生效），在临时 `DSH_HOME` 里 `dsh plugin --profile web add <tarball>`，启动真实 dsh web，断言插件树加载、`/pomasa` 通道与 client bundle 正常。全程不碰真实 profile，临时目录退出即清。缺 `POMASA_INSTALL_SPEC` 时测本地包（即正被推送的代码）；设成 registry spec（如 `pomasa-studio@0.2.3`）时测已发布包（发版后验证 README 原样流程）。
+
+pre-push 钩子（`.githooks/pre-push`）在每次 push 前依次跑 `npm run verify` 与 `npm run test:install`，作为本项目 CI。本机没有 dsh/pnpm 时 install smoke 自动跳过（`POMASA_SKIP_INSTALL=1` 可显式跳过）。
 
 ## 本地开发安装
 

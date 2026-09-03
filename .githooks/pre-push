@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# pomasa-studio pre-push CI.
+#
+#   npm run verify          L1 unit + L2 host + client bundle smoke (no dsh)
+#   npm run test:install    pack current tree → dsh plugin add → real dsh boot
+#                           (skips with a note when dsh/pnpm are missing, or
+#                           when POMASA_SKIP_INSTALL=1)
+#
+# Install once per clone:  npm run hooks:install   (git config core.hooksPath .githooks)
+set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+echo "== pomasa-studio pre-push: verify =="
+npm run verify || { echo "FAIL: npm run verify"; exit 1; }
+
+echo "== pomasa-studio pre-push: install smoke (README flow, hermetic) =="
+if [ "${POMASA_SKIP_INSTALL:-0}" = "1" ]; then
+  echo "POMASA_SKIP_INSTALL=1 — install smoke skipped"
+elif ! command -v dsh >/dev/null 2>&1 || ! command -v pnpm >/dev/null 2>&1; then
+  echo "dsh/pnpm not found on PATH — install smoke skipped (verify still gates the push)"
+else
+  bash scripts/install-smoke.sh || { echo "FAIL: install smoke"; exit 1; }
+fi
+
+echo "pre-push OK"

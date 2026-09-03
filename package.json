@@ -1,6 +1,6 @@
 {
   "name": "pomasa-studio",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "POMASA Studio: manage all POMASA MASes (list, create via generator, run, inspect artifacts). DSH web-profile plugin.",
   "type": "module",
   "main": "lib/index.js",
@@ -36,6 +36,9 @@
     "build:client": "node scripts/bundle-client.mjs",
     "verify": "node verify.mjs",
     "test:transport": "bash scripts/transport-smoke.sh",
+    "test:pack": "bash scripts/package-integrity.sh",
+    "test:install": "bash scripts/install-smoke.sh",
+    "hooks:install": "git config core.hooksPath .githooks",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
     "test:e2e:install": "npm i -D @playwright/test && npx playwright install chromium",
     "prepare": "node scripts/bundle-client.mjs"

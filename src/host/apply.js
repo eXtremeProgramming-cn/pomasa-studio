@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { pomasaHome, masDir } from './core/paths.js'
 import { loadDescriptor } from './core/descriptor.js'
 import { loadRegistry, saveRegistry, upsertMas } from './core/registry.js'
@@ -405,7 +406,7 @@ export function apply(ctx, config = {}) {
       push('tool', { name: 'read', arguments: JSON.stringify({ file: 'SKILL.md' }) })
       push('tool', { name: 'read', arguments: JSON.stringify({ file: 'pattern-catalog/README.md' }) })
       setTimeout(() => {
-        const srcRoot = path.resolve(new URL('../../fixtures/mock-generated', import.meta.url).pathname)
+        const srcRoot = fileURLToPath(new URL('../../fixtures/mock-generated', import.meta.url))
         fs.cpSync(srcRoot, root, { recursive: true })
         const pj = path.join(root, 'pomasa.json')
         let txt = fs.readFileSync(pj, 'utf8')

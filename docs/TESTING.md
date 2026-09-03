@@ -13,6 +13,7 @@ L3 transport 冒烟（真实 dsh web + curl）
 L4 浏览器 E2E（Playwright + 真实 dsh web）
     ├── L4a seeded fixture（确定性、无模型调用、秒级）
     └── L4b live 冒烟（真实 LLM，真生成真运行，分钟级）
+L5 安装链路（打包 → dsh plugin add → 真实 dsh web 启动，封闭）
 ```
 
 原则：`docs/testing.md` 的 "prefer real implementation over mock" 意味着 L4 必须是真实 dsh web 组合，L1/L2 的 mock 只能当快速回归层，不能冒充实测定案。
@@ -73,6 +74,14 @@ L4 浏览器 E2E（Playwright + 真实 dsh web）
 - CI / 无 key 环境的替代：照 harness 的 `installLlmReplay` 做模型响应回放（record/replay），把真实调用降级为确定性。该项列为后续增强，不作为首版门槛。
 - 产出：`npm run verify:live`
 
+### L5 安装链路（package integrity + install smoke）
+
+目标：README 的用户安装路径（`dsh plugin add`）与"装了就能启动"。
+
+- `npm run test:pack`：把 `package.json` 的 `files` 白名单实际打包，断言 tarball 必带 `skill/`、`lib/`、`pomasa-home/` 等 host 启动需要的路径。专门治"装完缺目录"类打包回归。
+- `npm run test:install`：打包当前树 → 临时 DSH_HOME 里 `dsh plugin add <tarball>` → 起真实 dsh web → 断言插件树加载、`/pomasa` 通道、client bundle。起点就是 2026-09 Windows 事故（`scandir .../skill` 失败 + `C:\C:\` 双盘符前缀）的复现路径。
+- L5 默认测本地包（正被推送的代码）；`POMASA_INSTALL_SPEC=pomasa-studio@<已发布版本>` 切换到 registry，验证 publish 之后的 README 原样流程。
+
 ## 2. 执行骨架
 
 ```
@@ -94,16 +103,18 @@ e2e/
 
 ## 3. 验证矩阵
 
-| 功能 | L1 | L2 | L3 | L4a | L4b |
-|---|---|---|---|---|---|
-| 文件契约解析 | ✅ | ✅ | | | |
-| 路径防穿越 | ✅ | ✅ | | | |
-| RPC 生命周期 | | ✅ | | | |
-| bundle 挂载 / 通道 | | | ✅ | ✅ | ✅ |
-| tab 出现 | | | | ✅ | ✅ |
-| 列表 / 详情 / 查看器渲染 | | | | ✅ | ✅ |
-| 真实生成与运行 | | | | | ✅ |
-| 重启恢复 | | | ✅ 兜底 | ✅ | |
+| 功能 | L1 | L2 | L3 | L4a | L4b | L5 |
+|---|---|---|---|---|---|---|
+| 文件契约解析 | ✅ | ✅ | | | | |
+| 路径防穿越 | ✅ | ✅ | | | | |
+| RPC 生命周期 | | ✅ | | | | |
+| bundle 挂载 / 通道 | | | ✅ | ✅ | ✅ | ✅ |
+| 打包完整性（skill/ 等） | | | | | | ✅ |
+| 安装路径（dsh plugin add）可启动 | | | | | | ✅ |
+| tab 出现 | | | | ✅ | ✅ | |
+| 列表 / 详情 / 查看器渲染 | | | | ✅ | ✅ | |
+| 真实生成与运行 | | | | | ✅ | |
+| 重启恢复 | | | ✅ 兜底 | ✅ | | |
 
 ## 4. 已知要点与风险
 
