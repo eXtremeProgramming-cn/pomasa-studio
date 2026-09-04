@@ -63,7 +63,7 @@ ${pages}
 ${main}
 
     exports.apply = apply;
-    exports.inject = ["slots"];
+    exports.inject = ["slots", "workspaces", "sessions", "uiWorkspace"];
     return module.exports;
   }
 });

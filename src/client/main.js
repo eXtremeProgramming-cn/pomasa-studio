@@ -2,16 +2,19 @@
 // Entries: conversation.view (a session tab beside Chat / Trajectory) plus a
 // sidebar.footer.action that opens the Studio as a full-screen overlay, so the
 // workbench is reachable without opening a session.
-export const inject = ['slots']
+export const inject = ['slots', 'workspaces', 'sessions', 'uiWorkspace']
 
 // Best-effort diagnostic: report which workspace/session services THIS ctx
 // exposes (DSH Desktop 0.7.2 shuffled the API; the host appends it under
 // ~/.pomasa/diag.jsonl so a broken install can be diagnosed without devtools).
+// Tolerant accessor: injected fibers surface services both as ctx.<name>
+// (declared in inject) and via ctx.get.
+function sf(ctx, name) { return (ctx && (ctx[name] || (typeof ctx.get === 'function' ? ctx.get(name) : null))) || null }
+
 function pomasaDiag(ctx, phase) {
-  let ws = null, ses = null, ui = null
-  try { ws = ctx.get && ctx.get('workspaces') } catch { /* ignore */ }
-  try { ses = ctx.get && ctx.get('sessions') } catch { /* ignore */ }
-  try { ui = ctx.get && ctx.get('uiWorkspace') } catch { /* ignore */ }
+  const ws = sf(ctx, 'workspaces')
+  const ses = sf(ctx, 'sessions')
+  const ui = sf(ctx, 'uiWorkspace')
   const body = {
     phase,
     ws: !!ws, ses: !!ses, ui: !!ui,
@@ -237,14 +240,13 @@ export function apply(ctx) {
   // the session id so the host status machine follows it. Returns { ok } or an
   // error; the session appears under POMASA in the DSH sidebar.
   async function driveSession(kind, masId, unit, prompt) {
-    const workspacesSvc = ctx.get('workspaces')
-    const sessionsSvc = ctx.get('sessions')
+    const workspacesSvc = sf(ctx, 'workspaces')
+    const sessionsSvc = sf(ctx, 'sessions')
     // Since DSH harness 0.1.2-alpha.1 (DSH Desktop 0.7.2) the workspace
     // session entry moved off the `workspaces` service onto the `uiWorkspace`
-    // service. Both are optional at runtime, so resolve whichever the running
-    // frontend exposes (legacy harnesses keep it on `workspaces`).
-    let uiWs = null
-    try { uiWs = ctx.get('uiWorkspace') || null } catch { uiWs = null }
+    // service; both must be declared in the client `inject` list for the new
+    // runner to expose them. Resolve either shape here.
+    const uiWs = sf(ctx, 'uiWorkspace')
     const connectSession = (uiWs && typeof uiWs.connectWorkspace === 'function')
       ? uiWs.connectWorkspace.bind(uiWs)
       : (workspacesSvc && typeof workspacesSvc.connectWorkspace === 'function')
