@@ -4,9 +4,33 @@
 // workbench is reachable without opening a session.
 export const inject = ['slots']
 
+// Best-effort diagnostic: report which workspace/session services THIS ctx
+// exposes (DSH Desktop 0.7.2 shuffled the API; the host appends it under
+// ~/.pomasa/diag.jsonl so a broken install can be diagnosed without devtools).
+function pomasaDiag(ctx, phase) {
+  let ws = null, ses = null, ui = null
+  try { ws = ctx.get && ctx.get('workspaces') } catch { /* ignore */ }
+  try { ses = ctx.get && ctx.get('sessions') } catch { /* ignore */ }
+  try { ui = ctx.get && ctx.get('uiWorkspace') } catch { /* ignore */ }
+  const body = {
+    phase,
+    ws: !!ws, ses: !!ses, ui: !!ui,
+    wsMethods: ws ? Object.keys(ws).slice(0, 40) : null,
+    sesMethods: ses ? Object.keys(ses).slice(0, 40) : null,
+    uiMethods: ui ? Object.keys(ui).slice(0, 40) : null,
+    connectWs: !!(ws && typeof ws.connectWorkspace === 'function'),
+    connectUi: !!(ui && typeof ui.connectWorkspace === 'function'),
+    bind: !!(ses && typeof ses.binding === 'function'),
+    href: typeof location !== 'undefined' ? location.href.slice(0, 80) : '',
+  }
+  try { fetch('/pomasa/diag', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {}) } catch { /* ignore */ }
+  console.warn('[pomasa] diag', body)
+}
+
 export function apply(ctx) {
   const slots = ctx.get('slots')
   if (slots === undefined) return
+  try { pomasaDiag(ctx, 'apply') } catch { /* ignore */ }
 
   if (typeof document !== 'undefined') {
     const id = 'pomasa-studio-styles'
@@ -228,13 +252,15 @@ export function apply(ctx) {
         : null
     if (!workspacesSvc || !sessionsSvc || typeof sessionsSvc.binding !== 'function' || !connectSession) {
       // Diagnostic for remote debugging: which service leg is missing.
-      console.warn('[pomasa] session services unavailable', {
-        workspaces: !!workspacesSvc,
-        sessions: !!sessionsSvc && typeof sessionsSvc.binding === 'function',
-        uiWorkspace: !!uiWs,
-        connectWorkspace: !!connectSession,
-      })
-      return { ok: false, error: t('err.ws.svc') }
+      const diag = {
+        ws: !!workspacesSvc,
+        ses: !!sessionsSvc && typeof sessionsSvc.binding === 'function',
+        uiws: !!uiWs,
+        conn: !!connectSession,
+      }
+      console.warn('[pomasa] session services unavailable', diag)
+      try { pomasaDiag(ctx, 'drive:fail') } catch { /* ignore */ }
+      return { ok: false, error: `${t('err.ws.svc')} [ws:${diag.ws},ses:${diag.ses},uiws:${diag.uiws},conn:${diag.conn}]` }
     }
     let meta = null
     try { meta = await (await fetch('/pomasa/meta')).json() } catch { /* ignore */ }
@@ -269,6 +295,7 @@ export function apply(ctx) {
     } catch (e) { return { ok: false, error: t('err.ws.start', { m: String(e && e.message || e) }) } }
     try { await fetch('/pomasa/record', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ masId, kind, unit: unit || 'single', sessionId }) }) } catch { /* best-effort */ }
     if (kind === 'run') lastRunSession.set(masId, sessionId)
+    try { pomasaDiag(ctx, 'drive:ok') } catch { /* ignore */ }
     return { ok: true, sessionId }
   }
 

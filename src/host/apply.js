@@ -819,6 +819,23 @@ export function apply(ctx, config = {}) {
       res.end(Buffer.from(b64, 'base64'))
     },
   }))
+  disposers.push(ws.register({
+    kind: 'exact',
+    path: '/pomasa/diag',
+    // Client-side diagnostic sink: the workbench client reports which
+    // workspace/session services its ctx exposes (DSH Desktop 0.7.2 moved the
+    // API around) and the host appends them under ~/.pomasa/diag.jsonl.
+    handler: (req, res) => {
+      let body = ''
+      req.on('data', (c) => { body += c })
+      req.on('end', () => {
+        try {
+          fs.appendFileSync(path.join(home(), 'diag.jsonl'), JSON.stringify({ t: Date.now(), ...JSON.parse(body || '{}') }) + '\n')
+        } catch { /* ignore */ }
+        res.writeHead(204); res.end()
+      })
+    },
+  }))
 
   // Embedded workspace-MCP: mount ~/.pomasa/.dsh/mcp.servers.yml servers through
   // the mcp-client dsh ships by default (fire-and-forget, never blocks startup).

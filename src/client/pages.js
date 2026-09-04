@@ -171,7 +171,7 @@ function CreateMas(props) {
       // the POMASA workspace
       if (r.generation === 'client' && props.onGeneration) {
         const d = await props.onGeneration(r.masId, r.prompt)
-        if (!d.ok) setError(d.error || t('gen.start.failed'))
+        if (!d.ok) { setError(d.error || t('gen.start.failed')); return } // 失败停在表单，别关掉把错误吞了
       }
       props.onDone(r.masId)
     } catch (e) {
