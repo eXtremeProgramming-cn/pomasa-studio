@@ -2,14 +2,23 @@
 // Entries: conversation.view (a session tab beside Chat / Trajectory) plus a
 // sidebar.footer.action that opens the Studio as a full-screen overlay, so the
 // workbench is reachable without opening a session.
-export const inject = ['slots', 'workspaces', 'sessions', 'uiWorkspace']
+export const inject = ['slots', 'workspaces', 'sessions']
 
 // Best-effort diagnostic: report which workspace/session services THIS ctx
 // exposes (DSH Desktop 0.7.2 shuffled the API; the host appends it under
 // ~/.pomasa/diag.jsonl so a broken install can be diagnosed without devtools).
 // Tolerant accessor: injected fibers surface services both as ctx.<name>
-// (declared in inject) and via ctx.get.
-function sf(ctx, name) { return (ctx && (ctx[name] || (typeof ctx.get === 'function' ? ctx.get(name) : null))) || null }
+// (declared in inject) and via ctx.get. Undeclared services THROW on the gated
+// runner ("cannot get property ... without inject") — both property access and
+// ctx.get — so swallow both and return null.
+function sf(ctx, name) {
+  if (!ctx) return null
+  try { if (ctx[name]) return ctx[name] } catch { /* gated property access */ }
+  if (typeof ctx.get === 'function') {
+    try { return ctx.get(name) } catch { return null }
+  }
+  return null
+}
 
 function pomasaDiag(ctx, phase) {
   const ws = sf(ctx, 'workspaces')
@@ -243,26 +252,31 @@ export function apply(ctx) {
     const workspacesSvc = sf(ctx, 'workspaces')
     const sessionsSvc = sf(ctx, 'sessions')
     // Since DSH harness 0.1.2-alpha.1 (DSH Desktop 0.7.2) the workspace
-    // session entry moved off the `workspaces` service onto the `uiWorkspace`
-    // service; both must be declared in the client `inject` list for the new
-    // runner to expose them. Resolve either shape here.
+    // session entry moved off the `workspaces` service onto `uiWorkspace`;
+    // the new runner only exposes services the bundle declares in `inject`, and
+    // `uiWorkspace` is not available on legacy harnesses, so connect here via
+    // `workspaces.connectWorkspace` (legacy) or `sessions.create({ workspaceId })`
+    // (new harness — what uiWorkspace wraps). Both services are injectable on
+    // every harness generation.
     const uiWs = sf(ctx, 'uiWorkspace')
     const connectSession = (uiWs && typeof uiWs.connectWorkspace === 'function')
       ? uiWs.connectWorkspace.bind(uiWs)
       : (workspacesSvc && typeof workspacesSvc.connectWorkspace === 'function')
         ? workspacesSvc.connectWorkspace.bind(workspacesSvc)
         : null
-    if (!workspacesSvc || !sessionsSvc || typeof sessionsSvc.binding !== 'function' || !connectSession) {
+    const canCreate = !!(sessionsSvc && typeof sessionsSvc.create === 'function')
+    if (!workspacesSvc || !sessionsSvc || typeof sessionsSvc.binding !== 'function' || (!connectSession && !canCreate)) {
       // Diagnostic for remote debugging: which service leg is missing.
       const diag = {
         ws: !!workspacesSvc,
         ses: !!sessionsSvc && typeof sessionsSvc.binding === 'function',
         uiws: !!uiWs,
         conn: !!connectSession,
+        create: canCreate,
       }
       console.warn('[pomasa] session services unavailable', diag)
       try { pomasaDiag(ctx, 'drive:fail') } catch { /* ignore */ }
-      return { ok: false, error: `${t('err.ws.svc')} [ws:${diag.ws},ses:${diag.ses},uiws:${diag.uiws},conn:${diag.conn}]` }
+      return { ok: false, error: `${t('err.ws.svc')} [ws:${diag.ws},ses:${diag.ses},uiws:${diag.uiws},conn:${diag.conn},create:${diag.create}]` }
     }
     let meta = null
     try { meta = await (await fetch('/pomasa/meta')).json() } catch { /* ignore */ }
@@ -284,7 +298,11 @@ export function apply(ctx) {
     }
     if (!ws) return { ok: false, error: t('err.ws.home') }
     let sessionId
-    try { sessionId = await connectSession(ws.workspaceId ?? ws.id) }
+    try {
+      const wid = ws.workspaceId ?? ws.id
+      const created = connectSession ? await connectSession(wid) : await sessionsSvc.create({ workspaceId: wid })
+      sessionId = created && typeof created === 'object' && created.id ? created.id : created
+    }
     catch (e) { return { ok: false, error: t('err.ws.create', { m: String(e && e.message || e) }) } }
     try {
       const bound = typeof sessionsSvc.binding === 'function' ? sessionsSvc.binding(sessionId) : null
