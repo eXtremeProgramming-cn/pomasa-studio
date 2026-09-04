@@ -215,7 +215,25 @@ export function apply(ctx) {
   async function driveSession(kind, masId, unit, prompt) {
     const workspacesSvc = ctx.get('workspaces')
     const sessionsSvc = ctx.get('sessions')
-    if (!workspacesSvc || !sessionsSvc || typeof workspacesSvc.connectWorkspace !== 'function') {
+    // Since DSH harness 0.1.2-alpha.1 (DSH Desktop 0.7.2) the workspace
+    // session entry moved off the `workspaces` service onto the `uiWorkspace`
+    // service. Both are optional at runtime, so resolve whichever the running
+    // frontend exposes (legacy harnesses keep it on `workspaces`).
+    let uiWs = null
+    try { uiWs = ctx.get('uiWorkspace') || null } catch { uiWs = null }
+    const connectSession = (uiWs && typeof uiWs.connectWorkspace === 'function')
+      ? uiWs.connectWorkspace.bind(uiWs)
+      : (workspacesSvc && typeof workspacesSvc.connectWorkspace === 'function')
+        ? workspacesSvc.connectWorkspace.bind(workspacesSvc)
+        : null
+    if (!workspacesSvc || !sessionsSvc || typeof sessionsSvc.binding !== 'function' || !connectSession) {
+      // Diagnostic for remote debugging: which service leg is missing.
+      console.warn('[pomasa] session services unavailable', {
+        workspaces: !!workspacesSvc,
+        sessions: !!sessionsSvc && typeof sessionsSvc.binding === 'function',
+        uiWorkspace: !!uiWs,
+        connectWorkspace: !!connectSession,
+      })
       return { ok: false, error: t('err.ws.svc') }
     }
     let meta = null
@@ -238,7 +256,7 @@ export function apply(ctx) {
     }
     if (!ws) return { ok: false, error: t('err.ws.home') }
     let sessionId
-    try { sessionId = await workspacesSvc.connectWorkspace(ws.workspaceId) }
+    try { sessionId = await connectSession(ws.workspaceId ?? ws.id) }
     catch (e) { return { ok: false, error: t('err.ws.create', { m: String(e && e.message || e) }) } }
     try {
       const bound = typeof sessionsSvc.binding === 'function' ? sessionsSvc.binding(sessionId) : null
@@ -294,7 +312,7 @@ export function apply(ctx) {
     } else {
       // MASes exist, none selected
       right = h('div', { className: 'ps-empty-hero quiet' },
-        h('img', { className: 'ps-meme', src: MASA_MEME, alt: '', draggable: false }),
+        h('img', { className: 'ps-meme', src: MASA_MEME_URL, alt: '', draggable: false, onError: (e) => { if (e && e.currentTarget) e.currentTarget.src = MASA_MEME } }),
         h('h2', null, t('hero.choose.title')),
         h('p', null, t('hero.choose.desc')),
       )

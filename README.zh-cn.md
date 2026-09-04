@@ -33,6 +33,10 @@ dsh plugin --profile <profile> add pomasa-studio
 
 把 `<profile>` 换成目标 profile 名（如 `desktop`、`web`）。然后启动该 profile，dsh 左下角会出现 POMASA Studio 入口按钮。POMASA 的 `~/.pomasa` 数据目录会在首次使用时由 host 层自动创建。
 
+## 适配的 DSH 版本
+
+POMASA Studio 以 **DSH Desktop 0.7.2**（内置 Harness **0.1.2-alpha.1**）为适配与测试基准。DeepSeek Harness 的客户端 API（工作区/会话服务）演进很快，本月两个版本之间可能就面目全非，所以本插件只跟住一个 harness 世代。其他版本——无论更旧更新——可能能跑、也可能无预告地坏掉，都不在我们的支持范围内。DSH 升级后插件不工作，请先回到上面这个版本，而不是去排查版本差异。
+
 ## 使用
 
 1. 启动 dsh 后，点击左下角的 POMASA Studio 按钮，打开工作台。

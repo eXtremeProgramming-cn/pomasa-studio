@@ -11,6 +11,7 @@ import { ensureSkill, generationPrompt, runPrompt } from './core/skill.js'
 import { ensurePomasaHome } from './core/pomasa-home.js'
 import { loadMcpServers } from './mcp-loader.js'
 import { mdToDocx } from './core/export.js'
+import { MASA_MEME } from '../client/meme.js'
 
 export const name = 'pomasa-studio'
 export const inject = ['webServer', 'agentLoop', 'tools']
@@ -806,6 +807,18 @@ export function apply(ctx, config = {}) {
       handler: handleApi,
     }),
   )
+  disposers.push(ws.register({
+    kind: 'exact',
+    path: '/pomasa/meme.jpg',
+    handler: (_req, res) => {
+      // The whale-girl meme as a real image. The client once inlined it as a
+      // data: URI, which newer DSH Desktop WebViews do not render; a same-origin
+      // GET works everywhere.
+      const b64 = MASA_MEME.startsWith('data:image/') ? MASA_MEME.slice(MASA_MEME.indexOf(',') + 1) : MASA_MEME
+      res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=86400' })
+      res.end(Buffer.from(b64, 'base64'))
+    },
+  }))
 
   // Embedded workspace-MCP: mount ~/.pomasa/.dsh/mcp.servers.yml servers through
   // the mcp-client dsh ships by default (fire-and-forget, never blocks startup).

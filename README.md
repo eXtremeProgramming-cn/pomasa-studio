@@ -34,6 +34,10 @@ The agent does the terminal work from there. You can also run the same `dsh plug
 
 Replace `<profile>` with the target profile name (e.g. `desktop`, `web`), then start that profile. The dsh footer gains a POMASA Studio button in the bottom-left corner. A POMASA `~/.pomasa` home directory is created by the host layer on first use.
 
+## Supported dsh version
+
+POMASA Studio is built and tested against **DSH Desktop 0.7.2** (bundled Harness **0.1.2-alpha.1**). The DeepSeek Harness client API moves quickly — the workspace/session services it exposes keep changing — so this plugin intentionally tracks one harness generation. Other versions (older or newer) may work or may break without notice, and are outside our support scope. If something stops working after a DSH update, update dsh to the version above rather than debugging the mismatch.
+
 ## Usage
 
 1. Start dsh and click the POMASA Studio button at the bottom left to open the workbench.

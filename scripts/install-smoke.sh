@@ -105,6 +105,11 @@ echo "$BODY" | grep -q '"ok":true' \
 curl -sf "http://127.0.0.1:${PORT}/plugins/pomasa-studio/client.js" -o /dev/null \
   || { echo "FAIL: client bundle not served" >&2; exit 1; }
 
+# Meme image must be served as a real image (new DSH Desktop WebViews block
+# inline data: URIs, so the workbench meme rides on this route now).
+curl -sf "http://127.0.0.1:${PORT}/pomasa/meme.jpg" -o /dev/null \
+  || { echo "FAIL: meme.jpg not served" >&2; exit 1; }
+
 RESP="$(curl -s -X POST -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:${PORT}/pomasa/mas.create")"
 echo "$RESP" | grep -q '"ok":false' \
   || { echo "FAIL: create validation should error — $RESP" >&2; exit 1; }
